@@ -2,7 +2,6 @@ use itertools::Itertools;
 use once_cell::sync::OnceCell;
 use rayon::prelude::*;
 use std::cmp::Ordering;
-use std::mem;
 
 use super::NodeDictionary;
 use crate::rules::*;
@@ -273,10 +272,9 @@ pub fn bucket_sort_pairs(pairs: &mut Vec<[u64; 2]>) -> usize {
         .unwrap_or((0, 0));
     let width = (max - min + 1) as usize;
     let mut hist: Vec<usize> = vec![0; width];
-    let mut hist2: Vec<usize> = Vec::with_capacity(width);
     let mut cumul: Vec<usize> = vec![0; width];
     build_hist(pairs, min, 0, &mut hist);
-    mem::replace(&mut hist2, hist.to_vec());
+    let hist2 = hist.to_vec();
     build_cumul(&hist, &mut cumul);
     let len = pairs.len();
     let mut objects = vec![0; len];
@@ -341,10 +339,9 @@ fn bucket_sort_pairs_os(pairs: &mut Vec<[u64; 2]>) {
         .unwrap_or((0, 0));
     let width = (max - min + 1) as usize;
     let mut hist: Vec<usize> = vec![0; width];
-    let mut hist2: Vec<usize> = Vec::with_capacity(width);
     let mut cumul: Vec<usize> = vec![0; width];
     build_hist(pairs, min, 1, &mut hist);
-    mem::replace(&mut hist2, hist.to_vec());
+    let hist2 = hist.to_vec();
     build_cumul(&hist, &mut cumul);
     let len = pairs.len();
     let mut objects = vec![0; len];
