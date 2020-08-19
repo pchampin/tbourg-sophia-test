@@ -1,5 +1,6 @@
 use crate::inferray::*;
 use crate::rules::*;
+use std::fmt;
 
 pub struct ClosureProfile {
     pub on_sa: bool,
@@ -163,5 +164,17 @@ impl RuleProfile {
 
     pub fn name(&self) -> &str {
         &self.name
+    }
+}
+
+impl fmt::Display for RuleProfile {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str(&self.name)
+    }
+}
+
+impl fmt::Debug for RuleProfile {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self)
     }
 }
