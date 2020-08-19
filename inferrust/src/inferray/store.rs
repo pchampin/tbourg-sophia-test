@@ -1,3 +1,22 @@
+/// A [`TripleStore`] stores integer-triples in a compact and efficient structure:
+///
+/// * each predicate is represented by a [`Chunk`];
+/// * a [`Chunk`] maintains two lists of pairs (subject-object and object-subject),
+///   sorted in lexicographical order.
+///
+/// This allows to efficiently check if a given triple is present,
+/// or to iterate over
+///
+/// * all triples with a given predicate;
+/// * all triples with a given predicate and subject;
+/// * all triples with a given predicate and object.
+///
+/// Note also that when a [`Chunk`] is built, only the (subject-object) list is built;
+/// the (object-subject) list is built lazily whenever it is required.
+///
+/// [`TripleStore`]: ./struct.TripleStore.html
+/// [`Chunk`]: ./struct.Chunk.html
+
 use itertools::Itertools;
 use once_cell::sync::OnceCell;
 use rayon::prelude::*;
@@ -6,26 +25,35 @@ use std::cmp::Ordering;
 use super::NodeDictionary;
 use crate::rules::*;
 
+/// See [module documentation](./index.html).
 #[derive(Default, PartialEq, Debug, Clone)]
 pub struct TripleStore {
+    /// each chunk represents triples with a given predicate
     elem: Vec<Chunk>,
+    /// total number of triples in all the chunks
     size: usize,
 }
 
+/// See [module documentation](./index.html).
 #[derive(Default, PartialEq, Debug, Clone)]
 pub struct Chunk {
+    // subject-object list
     so: Vec<[u64; 2]>,
+    // object-subject list (built lazily)
     os: OnceCell<Vec<[u64; 2]>>,
+    // dirty-flag, indicating that so is not correctly sorted
     so_dirty: bool,
 }
 
 impl Chunk {
-    // # Pre-condition
-    // so must be sorted.
+    // type-invariant:
+    // * so must be sorted
+    // * so_dirty must be false
 
     fn new(so: Vec<[u64; 2]>) -> Chunk {
         #[cfg(debug_assertions)]
-        {
+        {   // later, when slice::is_sorted() is stabilized,
+            // it should be used instead of the loop below
             for i in 1..so.len() {
                 assert!(so[i] >= so[i - 1]);
             }
@@ -48,19 +76,16 @@ impl Chunk {
     }
 
     pub fn so(&self) -> &Vec<[u64; 2]> {
-        #[cfg(debug_assertions)]
         debug_assert!(!self.so_dirty);
         &self.so
     }
 
     pub fn os(&self) -> &Vec<[u64; 2]> {
-        #[cfg(debug_assertions)]
         debug_assert!(!self.so_dirty);
         self.os.get_or_init(|| {
             let mut v = self.so.clone();
-            if !v.is_empty() {
-                bucket_sort_pairs_os(&mut v);
-            }
+            reverse_pairs(&mut v);
+            bucket_sort_pairs(&mut v);
             v
         })
     }
@@ -97,11 +122,6 @@ impl TripleStore {
         &mut self.elem
     }
 
-    #[inline]
-    pub fn set_elem(&mut self, elem: Vec<Chunk>) {
-        self.elem = elem;
-    }
-
     pub fn add_triple(&mut self, triple: [u64; 3]) {
         let [is, ip, io] = triple;
         let ip_to_store = NodeDictionary::prop_idx_to_idx(ip);
@@ -116,13 +136,6 @@ impl TripleStore {
             }
         }
     }
-    /// # Pre-condition
-    /// `self.elem` must have an element at index `ip`
-    #[inline]
-    pub fn add_triple_raw(&mut self, is: u64, ip: usize, io: u64) {
-        self.size += 1;
-        self.elem[ip].add_so([is, io]);
-    }
 
     /// Ensure that `self.elem` has an array at index `ip`
     #[inline]
@@ -132,19 +145,28 @@ impl TripleStore {
         }
     }
 
+    /// # Pre-condition
+    /// `self.elem` must have an element at index `ip`
+    #[inline]
+    pub fn add_triple_raw(&mut self, is: u64, ip: usize, io: u64) {
+        self.size += 1;
+        self.elem[ip].add_so([is, io]);
+    }
+
     pub fn add_triples(&mut self, ip: u64, sos: &[[u64; 2]]) {
         let ip_to_store = NodeDictionary::prop_idx_to_idx(ip);
         self.ensure_prop(ip_to_store);
         self.add_triples_raw(ip_to_store, sos);
     }
+
     /// # Pre-condition
     /// `self.elem` must have an element at index `ip`
     #[inline]
-
     pub fn add_triples_raw(&mut self, ip: usize, sos: &[[u64; 2]]) {
         self.size += sos.len();
         self.elem[ip].add_sos(sos);
     }
+
     pub fn sort(&mut self) {
         if self.elem.is_empty() {
             return;
@@ -331,53 +353,14 @@ fn build_cumul(hist: &[usize], cumul: &mut [usize]) {
     }
 }
 
-/// Reverse the pairs and sort them
 
-fn bucket_sort_pairs_os(pairs: &mut Vec<[u64; 2]>) {
-    let (min, max) = pairs
-        .iter()
-        .map(|pair| pair[1])
-        .minmax()
-        .into_option()
-        .unwrap_or((0, 0));
-    let width = (max - min + 1) as usize;
-    let mut hist: Vec<usize> = vec![0; width];
-    let mut cumul: Vec<usize> = vec![0; width];
-    build_hist(pairs, min, 1, &mut hist);
-    let hist2 = hist.to_vec();
-    build_cumul(&hist, &mut cumul);
-    let len = pairs.len();
-    let mut objects = vec![0; len];
-    for val in pairs.iter() {
-        let val_s = val[0];
-        let val_o = val[1];
-        let idx = (val_o - min) as usize;
-        let pos = cumul[idx];
-        let remaining = hist[idx];
-        let obj_idx = (pos + remaining - 1) as usize;
-        hist[idx] -= 1;
-        objects[obj_idx] = val_s;
-    }
-    for i in 0..(width - 1) {
-        quickersort::sort(&mut objects[cumul[i]..cumul[i + 1]]);
-    }
-    quickersort::sort(&mut objects[cumul[width - 1]..len]);
-
-    let mut j = 0;
-    let mut l = 0;
-    for (i, val) in hist2.iter().enumerate() {
-        for _ in 0..*val {
-            let s = objects[l];
-            l += 1;
-            let o = min + i as u64;
-            pairs[j] = [o, s];
-            j += 1;
-        }
+fn reverse_pairs(pairs: &mut [[u64; 2]]) {
+    for pair in pairs.iter_mut() {
+        pair.swap(0, 1);
     }
 }
 
 #[test]
-
 fn test_sort() {
     let mut pairs = vec![[2, 1], [1, 3]];
     bucket_sort_pairs(&mut pairs);
@@ -398,7 +381,6 @@ fn test_sort() {
 }
 
 #[test]
-
 fn test_join() {
     let a = TripleStore {
         elem: vec![Chunk::default()],
