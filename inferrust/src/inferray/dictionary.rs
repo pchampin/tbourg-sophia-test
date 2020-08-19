@@ -9,15 +9,12 @@ use sophia::triple::Triple;
 use std::borrow::Borrow;
 use std::collections::HashMap;
 
-use super::TripleStore;
-
 pub struct NodeDictionary {
     factory: ArcTermFactory,
     resources: Vec<ArcTerm>,
     properties: Vec<ArcTerm>,
     indexes: HashMap<StaticTerm, u64>,
-    removed_val: Vec<[u64; 2]>,
-    ts: Option<TripleStore>,
+    remapped: Vec<[u64; 2]>,
 }
 
 impl NodeDictionary {
@@ -101,32 +98,18 @@ impl NodeDictionary {
             resources: Vec::with_capacity((Self::res_start - Self::START_INDEX as u64) as usize),
             properties: Vec::with_capacity((Self::START_INDEX - Self::prop_start) as usize),
             indexes: HashMap::new(),
-            removed_val: vec![],
-            ts: None,
+            remapped: vec![],
         };
         me.init_const();
         me
     }
 
     #[inline]
-    pub fn ts(&self) -> &TripleStore {
-        debug_assert_ne!(self.ts, None);
-        self.ts.as_ref().unwrap()
-    }
-    #[inline]
-    pub fn ts_mut(&mut self) -> &mut TripleStore {
-        debug_assert_ne!(self.ts, None);
-        self.ts.as_mut().unwrap()
-    }
-    #[inline]
-    pub fn set_ts(&mut self, mut ts: TripleStore) {
-        self.removed_val.iter().for_each(|[o, n]| {
-            ts.res_to_prop(*o, *n as u32);
-        });
-        self.ts = Some(ts);
+    pub(super) fn remapped(&self) -> &[[u64; 2]] {
+        &self.remapped[..]
     }
 
-    pub fn encode_triple<T>(&mut self, t: &T) -> [u64; 3]
+    pub(super) fn encode_triple<T>(&mut self, t: &T) -> [u64; 3]
     where
         T: Triple,
         // T::Term: ?Sized,
@@ -160,7 +143,7 @@ impl NodeDictionary {
         [s, p as u64, o]
     }
 
-    pub fn add<T>(&mut self, term: &T) -> u64
+    fn add<T>(&mut self, term: &T) -> u64
     where
         T: TTerm + ?Sized,
     {
@@ -180,25 +163,29 @@ impl NodeDictionary {
         }
     }
 
-    pub fn add_property<T>(&mut self, term: &T) -> u32
+    fn add_property<T>(&mut self, term: &T) -> u32
     where
         T: TTerm + ?Sized,
     {
         let term: RefTerm = RefTerm::from(term);
-        match self.indexes.get(&term).cloned() {
-            Some(idx) if idx < Self::START_INDEX as u64 => idx as u32,
-            Some(idx) => self.remap_res_to_prop(idx),
-            None => {
-                // NB: we could not use self.index.entry,
-                // because we do not want to allocate the term before we need it
-                let arcterm = self.factory.convert_term(term);
-                let refterm = unsafe { fake_static(&arcterm) };
-                self.properties.push(arcterm);
-                let idx = Self::START_INDEX as u32 - self.properties.len() as u32;
-                self.indexes.insert(refterm, idx as u64);
-                idx
+        let old_idx = self.indexes.get(&term).cloned();
+        if let Some(idx) = old_idx {
+            if idx < Self::START_INDEX as u64 {
+                return idx as u32
             }
         }
+        let arcterm = match old_idx {
+            Some(old_idx) => self.resources[(old_idx - Self::START_INDEX as u64 - 1) as usize].clone(),
+            None => self.factory.convert_term(term),
+        };
+        let refterm = unsafe { fake_static(&arcterm) };
+        self.properties.push(arcterm);
+        let idx = Self::START_INDEX as u32 - self.properties.len() as u32;
+        self.indexes.insert(refterm, idx as u64);
+        if let Some(old_idx) = old_idx {
+            self.remapped.push([old_idx, idx as u64]);
+        }
+        idx
     }
 
     #[inline]
@@ -220,18 +207,7 @@ impl NodeDictionary {
         debug_assert_eq!(idx, id);
     }
 
-    fn remap_res_to_prop(&mut self, old_idx: u64) -> u32 {
-        println!("rtp");
-        let arcterm = &self.resources[(old_idx - Self::START_INDEX as u64 - 1) as usize];
-        let refterm = unsafe { fake_static(arcterm) };
-        self.properties.push(arcterm.clone());
-        let new_idx = Self::START_INDEX as u32 - self.properties.len() as u32;
-        self.indexes.insert(refterm, new_idx as u64);
-        self.removed_val.push([old_idx, new_idx as u64]);
-        new_idx
-    }
-
-    pub fn get_term(&self, index: u64) -> &ArcTerm {
+    pub(super) fn get_term(&self, index: u64) -> &ArcTerm {
         if index < Self::START_INDEX as u64 {
             &self.properties[Self::START_INDEX as usize - index as usize - 1]
         } else {
@@ -240,15 +216,15 @@ impl NodeDictionary {
     }
 
     #[inline]
-    pub fn get_index<T>(&self, t: &T) -> Option<u64>
+    pub(super) fn get_index<T>(&self, t: &T) -> Option<u64>
     where
         T: TTerm + ?Sized,
     {
         self.indexes.get(&RefTerm::from(t)).cloned()
     }
 
-    pub fn was_removed(&self, res: u64) -> bool {
-        self.removed_val.iter().any(|[o, _]| *o == res)
+    pub fn was_remapped(&self, res: u64) -> bool {
+        self.remapped.iter().any(|[o, _]| *o == res)
     }
 
     pub fn get_res_ctr(&self) -> u64 {

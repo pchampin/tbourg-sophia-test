@@ -90,11 +90,14 @@ impl Chunk {
         })
     }
 
-    fn res_to_prop(&mut self, res: u64, prop: u64) {
-        for pair in self.so.iter_mut() {
-            for val in pair.iter_mut() {
-                if *val == res {
-                    *val = prop;
+    fn remap_res_to_prop(&mut self, map: &[[u64; 2]]) {
+        for [old, new] in map {
+            for pair in self.so.iter_mut() {
+                for val in pair.iter_mut() {
+                    if *val == *old {
+                        self.so_dirty = true;
+                        *val = *new;
+                    }
                 }
             }
         }
@@ -104,11 +107,6 @@ impl Chunk {
         self.so_dirty = true;
         self.so.push(so);
     }
-
-    fn add_sos(&mut self, sos: &[[u64; 2]]) {
-        self.so_dirty = true;
-        self.so.extend(sos);
-    }
 }
 
 impl TripleStore {
@@ -117,12 +115,7 @@ impl TripleStore {
         &self.elem
     }
 
-    #[inline]
-    pub fn elem_mut(&mut self) -> &mut Vec<Chunk> {
-        &mut self.elem
-    }
-
-    pub fn add_triple(&mut self, triple: [u64; 3]) {
+    pub(super) fn add_triple(&mut self, triple: [u64; 3]) {
         let [is, ip, io] = triple;
         let ip_to_store = NodeDictionary::prop_idx_to_idx(ip);
         self.ensure_prop(ip_to_store);
@@ -153,38 +146,24 @@ impl TripleStore {
         self.elem[ip].add_so([is, io]);
     }
 
-    pub fn add_triples(&mut self, ip: u64, sos: &[[u64; 2]]) {
-        let ip_to_store = NodeDictionary::prop_idx_to_idx(ip);
-        self.ensure_prop(ip_to_store);
-        self.add_triples_raw(ip_to_store, sos);
-    }
-
-    /// # Pre-condition
-    /// `self.elem` must have an element at index `ip`
-    #[inline]
-    pub fn add_triples_raw(&mut self, ip: usize, sos: &[[u64; 2]]) {
-        self.size += sos.len();
-        self.elem[ip].add_sos(sos);
-    }
-
     pub fn sort(&mut self) {
         if self.elem.is_empty() {
             return;
         }
         self.size = self.elem.par_iter_mut().map(|chunk| chunk.so_sort()).sum();
     }
-    pub fn res_to_prop(&mut self, res: u64, prop: u32) {
+
+    pub(super) fn remap_res_to_prop(&mut self, map: &[[u64; 2]]) {
         for chunk in &mut self.elem {
-            chunk.res_to_prop(res, prop.into());
+            chunk.remap_res_to_prop(map);
         }
-        /////////
     }
 
     pub fn size(&mut self) -> usize {
         self.size
     }
 
-    pub fn join(a: &Self, b: &Self) -> Self {
+    pub(super) fn join(a: &Self, b: &Self) -> Self {
         let len = std::cmp::max(a.elem.len(), b.elem.len());
         let mut chunks: Vec<Chunk> = Vec::new();
         let mut size = 0;
@@ -285,7 +264,7 @@ impl TripleStore {
 }
 
 /// Sort the pairs and remove duplicates
-pub fn bucket_sort_pairs(pairs: &mut Vec<[u64; 2]>) -> usize {
+fn bucket_sort_pairs(pairs: &mut Vec<[u64; 2]>) -> usize {
     if pairs.is_empty() {
         return 0;
     }

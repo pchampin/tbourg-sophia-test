@@ -20,11 +20,10 @@ impl RuleSet for Vec<Box<Rule>> {
             return;
         }
         let mut outputs = TripleStore::default();
-        let ts = graph.dict().ts();
+        let ts = graph.store();
         outputs.add_all(self.par_iter().map(|rule| rule(ts)).collect());
         outputs.sort();
-        let ts = TripleStore::join(graph.dict().ts(), &outputs);
-        graph.dict_mut().set_ts(ts);
+        graph.join_store(&outputs);
     }
 
     fn is_empty(&self) -> bool {
