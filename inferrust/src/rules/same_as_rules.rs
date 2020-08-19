@@ -12,61 +12,60 @@ use crate::rules::*;
 //  * <li>eq-sym</li>
 //  * </ul>
 //  *
-//  * Since same-as will be added for s-o symetrically, eq-rep-o is implide by
-//  * eq-rep-s
-//  *
 //  * @author Julien Subercaze
 //  *
 //  *         Dec. 13
 //  */
 fn apply_same_as_rule(ts: &TripleStore) -> RuleResult {
     let mut output = vec![];
-    let pairs1 = ts.elem().get(NodeDictionary::prop_idx_to_idx(
+    let sameas_chunk = ts.elem().get(NodeDictionary::prop_idx_to_idx(
         NodeDictionary::owlsameAs as u64,
     ));
-    if pairs1 == None {
-        return output;
-    }
-    let pairs1 = pairs1.unwrap().so();
-    if pairs1.is_empty() {
-        output
-    } else {
-        for pair1 in pairs1 {
-            output.push([pair1[1], NodeDictionary::owlsameAs as u64, pair1[0]]);
-            if pair1[0] < NodeDictionary::START_INDEX as u64 {
-                if let Some(pairs2) = ts.elem().get(NodeDictionary::prop_idx_to_idx(pair1[0])) {
-                    for pair2 in pairs2.so() {
-                        output.push([pair2[0], pair1[1], pair2[1]]);
+    if let Some(sameas_chunk) = sameas_chunk {
+        for same in sameas_chunk.so() {
+            output.push([same[1], NodeDictionary::owlsameAs as u64, same[0]]);
+            if same[0] < NodeDictionary::START_INDEX as u64 {
+                // EQ-REP-P
+                if let Some(pairs) = ts.elem().get(NodeDictionary::prop_idx_to_idx(same[0])) {
+                    for [si, oi] in pairs.so() {
+                        // TODO: ensure that same[1] is a property index
+                        output.push([*si, same[1], *oi]);
                     }
                 }
             } else {
                 for (idx, chunk) in ts.elem().iter().enumerate() {
-                    let pairs = chunk.so();
                     let pi = NodeDictionary::idx_to_prop_idx(idx);
                     if pi == NodeDictionary::owlsameAs as u64 {
                         continue;
                     }
-                    if !pairs.is_empty() {
-                        if pairs[0][0] <= pair1[0] && pairs[pairs.len() - 1][0] >= pair1[0] {
-                            for pair in pairs.iter() {
-                                if pair[0] > pair1[0] {
+                    // EQ-REP-S
+                    let so_pairs = chunk.so();
+                    if !so_pairs.is_empty() {
+                        let first_s = so_pairs[0][0];
+                        let last_s = so_pairs[so_pairs.len() - 1][0];
+                        if first_s <= same[0] && same[0] <= last_s {
+                            for [si, oi] in so_pairs {
+                                if *si > same[0] {
                                     break;
                                 }
-                                if pair[0] == pair1[0] {
-                                    output.push([pair1[1], pi, pair[1]]);
+                                if *si == same[0] {
+                                    output.push([same[1], pi, *oi]);
                                 }
                             }
                         }
                     }
-                    let pairs = chunk.os();
-                    if !pairs.is_empty() {
-                        if pairs[0][0] <= pair1[0] && pairs[pairs.len() - 1][0] >= pair1[0] {
-                            for pair in pairs.iter() {
-                                if pair[0] > pair1[0] {
+                    // EQ-REP-O
+                    let os_pairs = chunk.os();
+                    if !os_pairs.is_empty() {
+                        let first_o = os_pairs[0][0];
+                        let last_o = os_pairs[os_pairs.len() - 1][0];
+                        if first_o <= same[0] && same[0] <= last_o {
+                            for [oi, si] in os_pairs {
+                                if *oi > same[0] {
                                     break;
                                 }
-                                if pair[0] == pair1[0] {
-                                    output.push([pair[1], pi, pair1[1]]);
+                                if *oi == same[0] {
+                                    output.push([*si, pi, same[1]]);
                                 }
                             }
                         }
@@ -74,8 +73,8 @@ fn apply_same_as_rule(ts: &TripleStore) -> RuleResult {
                 }
             }
         }
-        output
     }
+    output
 }
 
 pub fn SAME_AS(ts: &TripleStore) -> RuleResult {
