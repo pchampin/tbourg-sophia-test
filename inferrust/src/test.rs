@@ -28,6 +28,7 @@ fn test_infer(input: &str, expected: &str, mut profiles: Vec<RuleProfile>) -> Re
     for profile in &mut profiles {
         let mut i_graph = InfGraph::from(sophia::parser::turtle::parse_str(&full_input));
         i_graph.process(profile);
+        println!("=== {} triples inferred", i_graph.size() - exp_input.len());
 
         for [s, p, o] in &exp_input {
             assert!(i_graph.contains(s, p, o)?,
@@ -230,12 +231,12 @@ fn prp_fp() -> Result<(), Box<dyn Error>> {
     test_infer(
         r#"
         :mother a owl:FunctionalProperty.
-        :bart :mother :marge, <https://en.wikipedia.org/wiki/Marge_Simpson>.
+        :bart :mother :marge, <http://dbpedia.org/page/Marge_Simpson>.
         "#,
 
         r#"
-        :marge owl:sameAs <https://en.wikipedia.org/wiki/Marge_Simpson>.
-        <https://en.wikipedia.org/wiki/Marge_Simpson> owl:sameAs :marge.
+        :marge owl:sameAs <http://dbpedia.org/page/Marge_Simpson>.
+        <http://dbpedia.org/page/Marge_Simpson> owl:sameAs :marge.
         "#,
 
         vec![
@@ -670,6 +671,74 @@ fn scm_trans_p_scm_spo() -> Result<(), Box<dyn Error>> {
 
         r#"
         :bart :ancestor :clancy.
+        "#,
+
+        vec![
+            RuleProfile::RDFSPlus(),
+        ],
+    )
+}
+
+#[test]
+fn rich_ontology() -> Result<(), Box<dyn Error>> {
+    test_infer(
+        r#"
+        :Person a owl:Class .
+        :Male rdfs:subClassOf :Person.
+        :Female rdfs:subClassOf :Person.
+        :Child rdfs:subClassOf :Person.
+        :Adult rdfs:subClassOf :Person.
+        :Boy rdfs:subClassOf :Male, :Child.
+        :Girl rdfs:subClassOf :Female, :Child.
+        :Man rdfs:subClassOf :Male, :Adult.
+        :Woman rdfs:subClassOf :Female, :Aduly.
+#
+        :related a owl:TransitiveProperty, owl:SymmetricProperty ;
+            rdfs:domain :Person ;
+            rdfs:range :Person ;
+        .
+        :ancestor a owl:TransitiveProperty ;
+            rdfs:subPropertyOf :related ;
+        .
+        :parent rdfs:subPropertyOf :ancestor ;
+            owl:inverseOf :child ;
+        .
+        :fatherX a owl:FunctionalProperty ;
+            rdfs:subPropertyOf :parent ;
+            rdfs:range :Male ;
+        .
+        :mother a owl:FunctionalProperty ;
+            rdfs:subPropertyOf :parent ;
+            rdfs:range :Female ;
+        .
+        :son rdfs:subPropertyOf :child ;
+            rdfs:range :Male ;
+        .
+        :daughter rdfs:subPropertyOf :child ;
+            rdfs:range :Female ;
+        .
+#
+        :bart a :Boy ;
+            :father :homer ;
+            :mother :marge ;
+        .
+        :lisa a :Girl ;
+            :father :homer ;
+            :mother :marge ;
+        .
+        :marge
+            :father :clancy ;
+            :mother :jackie ;
+        .
+        "#,
+
+        r#"
+        :mother rdfs:subPropertyOf :ancestor.
+
+        :marge a :Female.
+        :marge :child :bart.
+        :bart :ancestor :jackie.
+        :bart :related :lisa.
         "#,
 
         vec![
