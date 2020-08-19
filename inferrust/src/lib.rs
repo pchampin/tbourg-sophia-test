@@ -50,3 +50,6 @@ pub mod closure;
 pub mod inferray;
 pub mod rules;
 pub mod utils;
+
+#[cfg(test)]
+mod test;
