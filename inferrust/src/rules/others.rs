@@ -147,6 +147,7 @@ pub fn PRP_TRP(ts: &TripleStore) -> RuleResult {
 
 pub fn finalize(graph: &mut InfGraph) {
     let type_index = NodeDictionary::prop_idx_to_idx(NodeDictionary::rdftype as u64);
+    graph.dict_mut().ts_mut().ensure_prop(type_index);
     let res = NodeDictionary::rdfsResource;
     ((NodeDictionary::START_INDEX as u64 + 1)..=graph.dict().get_res_ctr()).for_each(|e| {
         if !graph.dict().was_removed(e) {

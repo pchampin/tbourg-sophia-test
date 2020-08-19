@@ -105,9 +105,7 @@ impl TripleStore {
     pub fn add_triple(&mut self, triple: [u64; 3]) {
         let [is, ip, io] = triple;
         let ip_to_store = NodeDictionary::prop_idx_to_idx(ip);
-        if ip_to_store >= self.elem.len() {
-            self.elem.resize_with(ip_to_store + 1, Default::default);
-        }
+        self.ensure_prop(ip_to_store);
         self.add_triple_raw(is, ip_to_store, io);
     }
 
@@ -121,17 +119,22 @@ impl TripleStore {
     /// # Pre-condition
     /// `self.elem` must have an element at index `ip`
     #[inline]
-
     pub fn add_triple_raw(&mut self, is: u64, ip: usize, io: u64) {
         self.size += 1;
         self.elem[ip].add_so([is, io]);
     }
 
+    /// Ensure that `self.elem` has an array at index `ip`
+    #[inline]
+    pub fn ensure_prop(&mut self, ip: usize) {
+        if ip >= self.elem.len() {
+            self.elem.resize_with(ip + 1, Default::default);
+        }
+    }
+
     pub fn add_triples(&mut self, ip: u64, sos: &[[u64; 2]]) {
         let ip_to_store = NodeDictionary::prop_idx_to_idx(ip);
-        if ip_to_store >= self.elem.len() {
-            self.elem.resize_with(ip_to_store + 1, Default::default);
-        }
+        self.ensure_prop(ip_to_store);
         self.add_triples_raw(ip_to_store, sos);
     }
     /// # Pre-condition
