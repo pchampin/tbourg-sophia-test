@@ -61,8 +61,7 @@ impl Graph for InfGraph {
                         let p = self
                             .dictionary
                             .get_term(NodeDictionary::idx_to_prop_idx(pi));
-                        let len = chunk.so().len();
-                        let start_index = first(&chunk.so(), si, 0, len - 1, len, 0);
+                        let start_index = first_pair(&chunk.so(), si);
                         chunk.so()[start_index..]
                             .iter()
                             .take_while(move |[is, _]| si == *is)
@@ -122,8 +121,7 @@ impl Graph for InfGraph {
                         let p = self
                             .dictionary
                             .get_term(NodeDictionary::idx_to_prop_idx(pi));
-                        let len = chunk.os().len();
-                        let start_index = first(&chunk.os(), oi, 0, len - 1, len, 0);
+                        let start_index = first_pair(&chunk.os(), oi);
                         chunk.os()[start_index..]
                             .iter()
                             .take_while(move |[io, _]| oi == *io)
@@ -153,8 +151,7 @@ impl Graph for InfGraph {
             if !chunk.so().is_empty() {
                 let s = self.dictionary.get_term(si);
                 let p = self.dictionary.get_term(pi);
-                let len = chunk.so().len();
-                let start_index = first(&chunk.so(), si, 0, len - 1, len, 0);
+                let start_index = first_pair(&chunk.so(), si);
                 Box::from(
                     chunk.so()[start_index..]
                         .iter()
@@ -188,7 +185,7 @@ impl Graph for InfGraph {
                     if chunk.so().is_empty() {
                         None
                     } else {
-                        if binary_search_pair(&chunk.so(), [si, oi]) {
+                        if chunk.so().binary_search(&[si, oi]).is_ok() {
                             Some(Ok(StreamedTriple::by_term_refs(
                                 s,
                                 self.dictionary
@@ -217,8 +214,7 @@ impl Graph for InfGraph {
             if !chunk.os().is_empty() {
                 let p = self.dictionary.get_term(pi);
                 let o = self.dictionary.get_term(oi);
-                let len = chunk.os().len();
-                let start_index = first(&chunk.os(), oi, 0, len - 1, len, 0);
+                let start_index = first_pair(&chunk.os(), oi);
                 Box::from(
                     chunk.os()[start_index..]
                         .iter()
@@ -260,7 +256,7 @@ impl Graph for InfGraph {
             if chunk.so().is_empty() {
                 Box::from(std::iter::empty())
             } else {
-                if binary_search_pair(&chunk.so(), [si, oi]) {
+                if chunk.so().binary_search(&[si, oi]).is_ok() {
                     let s = self.dictionary.get_term(si);
                     let o = self.dictionary.get_term(oi);
                     let p = self.dictionary.get_term(pi);

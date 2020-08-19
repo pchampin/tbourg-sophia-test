@@ -160,8 +160,7 @@ impl ClosureGraph {
     }
 
     pub fn edges(&self, id: u64) -> Vec<u64> {
-        let len = self.edges.len();
-        let start_index = crate::utils::first(&self.edges, id, 0, len - 1, len, 0);
+        let start_index = crate::utils::first_pair(&self.edges, id);
         self.edges[start_index..]
             .iter()
             .take_while(|e| e[0] == id)

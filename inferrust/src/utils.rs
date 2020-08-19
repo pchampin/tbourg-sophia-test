@@ -1,28 +1,16 @@
 //! Bunch of utility functions
 
-/// Pre-condition: vec is an array of pairs sorted on the first elem of each pair
-/// then on the second
-pub fn binary_search_pair(vec: &[[u64; 2]], pair: [u64; 2]) -> bool {
-    vec.binary_search(&pair).is_ok()
-}
-
-/// Pre-condition: vec is sorted on the first elem of each pair
-pub fn first(vec: &[[u64; 2]], x: u64, low: usize, high: usize, n: usize, key_pos: usize) -> usize {
-    if high >= low {
-        let mid = low + (high - low) / 2;
-
-        if mid == low && mid == high {
-            if vec[mid][key_pos] != x {
-                return n;
-            }
-        }
-        if (mid == 0 || x > vec[mid - 1][key_pos]) && vec[mid][key_pos] == x {
-            return mid;
-        } else if x > vec[mid][key_pos] {
-            return first(vec, x, mid + 1, high, n, key_pos);
-        } else {
-            return first(vec, x, low, mid, n, key_pos);
-        }
+/// Return the position of the first pair in `pairs` whose first element is `x`.
+///
+/// If no such pair is present, return the lenth of `pairs`.
+///
+/// # Pre-condition
+/// `pairs` is sorted using the lexicographic order on pairs.
+pub fn first_pair(pairs: &[[u64; 2]], x: u64) -> usize {
+    let len = pairs.len();
+    match pairs.binary_search(&[x, 0]) {
+        Ok(i) => i,
+        Err(i) if i < len && pairs[i][0] == x => i,
+        _ => len,
     }
-    return n;
 }
