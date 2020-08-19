@@ -3,42 +3,29 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use inferrust::inferray::*;
 use inferrust::rules::*;
 
-pub fn simpsons_total(c: &mut Criterion) {
-    c.bench_function("simpsons_total", |b| {
+// retrieve the mirror at http://swat.cse.lehigh.edu/onto/univ-bench-dl.owl
+// and converted to N-Triples
+const UOBM_ONTO: &str = "benches/univ-bench-dl.nt";
+
+pub fn uobm_total(c: &mut Criterion) {
+    let data = std::fs::read_to_string(UOBM_ONTO).expect("open file");
+    c.bench_function("uobm_total", |b| {
         b.iter(|| {
-            let mut graph = InfGraph::from(sophia::parser::turtle::parse_str(SIMPSONS));
-            assert_eq!(graph.size(), 11);
+            let mut graph = InfGraph::from(sophia::parser::nt::parse_str(&data));
             graph.process(&mut RuleProfile::RDFSPlus());
-            // assert_eq!(graph.size(), 57);
         })
     });
 }
 
-pub fn simpsons_load(c: &mut Criterion) {
-    c.bench_function("simpsons_load", |b| {
+pub fn uobm_load(c: &mut Criterion) {
+    let data = std::fs::read_to_string(UOBM_ONTO).expect("open file");
+    c.bench_function("uobm_load", |b| {
         b.iter(|| {
-            let mut graph = InfGraph::from(sophia::parser::turtle::parse_str(SIMPSONS));
-            assert_eq!(graph.size(), 11);
+            let mut graph = InfGraph::from(sophia::parser::nt::parse_str(&data));
+            assert_eq!(graph.size(), 711);
         })
     });
 }
 
-criterion_group!(benches, simpsons_total, simpsons_load);
+criterion_group!(benches, uobm_total, uobm_load);
 criterion_main!(benches);
-
-const SIMPSONS: &str = r#"@prefix : <http://example.org/> .
-@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
-@prefix owl: <http://www.w3.org/2002/07/owl#> .
-
-:Bart rdf:type :human .
-:Lisa rdf:type :human .
-:BLOB a :entity .
-:human rdfs:subClassOf :mammal .
-:mammal rdfs:subClassOf :animal .
-:animal rdfs:subClassOf :entity .
-:entity rdfs:subClassOf :animal .
-:Bart :enfant :Lisa .
-:enfant owl:inverseOf :parent .
-:parent owl:equivalentProperty :geniteur . 
-:progeniture owl:equivalentProperty :enfant ."#;
