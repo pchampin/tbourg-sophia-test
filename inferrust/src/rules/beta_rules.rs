@@ -22,8 +22,8 @@ fn apply_beta_rule(ts: &TripleStore, rule_p: usize, infer_p: usize) -> RuleResul
         return output;
     }
     let pairs = pairs.unwrap();
-    let rule_p = NodeDictionary::idx_to_prop_idx(rule_p);
-    let infer_p = NodeDictionary::idx_to_prop_idx(infer_p);
+    let rule_p = NodeDictionary::offset_to_prop_idx(rule_p);
+    let infer_p = NodeDictionary::offset_to_prop_idx(infer_p);
     let pairs1 = pairs.os();
     let pairs2 = pairs.so();
     let mut counter = 0;
@@ -58,8 +58,8 @@ fn apply_inverse_beta_rule(ts: &TripleStore, rule_p: usize, infer_p: usize) -> R
     if pairs == None {
         return output;
     }
-    let rule_p = NodeDictionary::idx_to_prop_idx(rule_p);
-    let infer_p = NodeDictionary::idx_to_prop_idx(infer_p);
+    let rule_p = NodeDictionary::offset_to_prop_idx(rule_p);
+    let infer_p = NodeDictionary::offset_to_prop_idx(infer_p);
     let pairs1 = pairs.unwrap();
     for pair1 in pairs1.so() {
         output.push([pair1[0], infer_p, pair1[1]]);
@@ -70,25 +70,25 @@ fn apply_inverse_beta_rule(ts: &TripleStore, rule_p: usize, infer_p: usize) -> R
 }
 
 pub fn SCM_SCO_EQC2(ts: &TripleStore) -> RuleResult {
-    let id_1 = NodeDictionary::prop_idx_to_idx(NodeDictionary::rdfssubClassOf as u64);
-    let id_2 = NodeDictionary::prop_idx_to_idx(NodeDictionary::owlequivalentClass as u64);
+    let id_1 = NodeDictionary::prop_idx_to_offset(NodeDictionary::rdfssubClassOf as u64);
+    let id_2 = NodeDictionary::prop_idx_to_offset(NodeDictionary::owlequivalentClass as u64);
     apply_beta_rule(ts, id_1, id_2)
 }
 
 pub fn SCM_SPO_EQP2(ts: &TripleStore) -> RuleResult {
-    let id_1 = NodeDictionary::prop_idx_to_idx(NodeDictionary::rdfssubPropertyOf as u64);
-    let id_2 = NodeDictionary::prop_idx_to_idx(NodeDictionary::owlequivalentProperty as u64);
+    let id_1 = NodeDictionary::prop_idx_to_offset(NodeDictionary::rdfssubPropertyOf as u64);
+    let id_2 = NodeDictionary::prop_idx_to_offset(NodeDictionary::owlequivalentProperty as u64);
     apply_beta_rule(ts, id_1, id_2)
 }
 
 pub fn SCM_EQC1(ts: &TripleStore) -> RuleResult {
-    let id_1 = NodeDictionary::prop_idx_to_idx(NodeDictionary::owlequivalentClass as u64);
-    let id_2 = NodeDictionary::prop_idx_to_idx(NodeDictionary::rdfssubClassOf as u64);
+    let id_1 = NodeDictionary::prop_idx_to_offset(NodeDictionary::owlequivalentClass as u64);
+    let id_2 = NodeDictionary::prop_idx_to_offset(NodeDictionary::rdfssubClassOf as u64);
     apply_inverse_beta_rule(ts, id_1, id_2)
 }
 
 pub fn SCM_EQP1(ts: &TripleStore) -> RuleResult {
-    let id_1 = NodeDictionary::prop_idx_to_idx(NodeDictionary::owlequivalentProperty as u64);
-    let id_2 = NodeDictionary::prop_idx_to_idx(NodeDictionary::rdfssubPropertyOf as u64);
+    let id_1 = NodeDictionary::prop_idx_to_offset(NodeDictionary::owlequivalentProperty as u64);
+    let id_2 = NodeDictionary::prop_idx_to_offset(NodeDictionary::rdfssubPropertyOf as u64);
     apply_inverse_beta_rule(ts, id_1, id_2)
 }

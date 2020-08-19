@@ -7,7 +7,7 @@ fn apply_delta_rule(ts: &TripleStore, prop_idx: usize, invert: bool) -> RuleResu
     if let Some(pairs) = ts.elem().get(prop_idx) {
         for pair in pairs.so() {
             if pair[0] != pair[1] {
-                let prop_idx = NodeDictionary::prop_idx_to_idx(pair[0]);
+                let prop_idx = NodeDictionary::prop_idx_to_offset(pair[0]);
                 if let Some(usable_pairs) = ts.elem().get(prop_idx) {
                     let usable_pairs = if invert {
                         usable_pairs.os()
@@ -18,7 +18,7 @@ fn apply_delta_rule(ts: &TripleStore, prop_idx: usize, invert: bool) -> RuleResu
                         output.push([usable_pair[0], pair[1], usable_pair[1]]);
                     }
                 }
-                let prop_idx = NodeDictionary::prop_idx_to_idx(pair[1]);
+                let prop_idx = NodeDictionary::prop_idx_to_offset(pair[1]);
                 if let Some(usable_pairs) = ts.elem().get(prop_idx) {
                     let usable_pairs = if invert {
                         usable_pairs.os()
@@ -38,7 +38,7 @@ fn apply_delta_rule(ts: &TripleStore, prop_idx: usize, invert: bool) -> RuleResu
 pub fn PRP_INV_1_2(ts: &TripleStore) -> RuleResult {
     apply_delta_rule(
         ts,
-        NodeDictionary::prop_idx_to_idx(NodeDictionary::owlinverseOf as u64),
+        NodeDictionary::prop_idx_to_offset(NodeDictionary::owlinverseOf as u64),
         true,
     )
 }
@@ -46,7 +46,7 @@ pub fn PRP_INV_1_2(ts: &TripleStore) -> RuleResult {
 pub fn PRP_EQP_1_2(ts: &TripleStore) -> RuleResult {
     apply_delta_rule(
         ts,
-        NodeDictionary::prop_idx_to_idx(NodeDictionary::owlequivalentProperty as u64),
+        NodeDictionary::prop_idx_to_offset(NodeDictionary::owlequivalentProperty as u64),
         false,
     )
 }

@@ -31,7 +31,7 @@ impl Graph for InfGraph {
                 .map(move |(pi, chunk)| {
                     let p = self
                         .dictionary
-                        .get_term(NodeDictionary::idx_to_prop_idx(pi));
+                        .get_term(NodeDictionary::offset_to_prop_idx(pi));
                     chunk.so().iter().map(move |[si, oi]| {
                         Ok(StreamedTriple::by_term_refs(
                             self.dictionary.get_term(*si),
@@ -59,7 +59,7 @@ impl Graph for InfGraph {
                     .map(move |(pi, chunk)| {
                         let p = self
                             .dictionary
-                            .get_term(NodeDictionary::idx_to_prop_idx(pi));
+                            .get_term(NodeDictionary::offset_to_prop_idx(pi));
                         let start_index = first_pair(&chunk.so(), si);
                         chunk.so()[start_index..]
                             .iter()
@@ -84,7 +84,7 @@ impl Graph for InfGraph {
         T: TTerm + ?Sized,
     {
         if let Some(ip) = self.dictionary.get_index(p) {
-            let idx = NodeDictionary::prop_idx_to_idx(ip);
+            let idx = NodeDictionary::prop_idx_to_offset(ip);
             let chunk = &self.store.elem()[idx];
             if !chunk.so().is_empty() {
                 let p = self.dictionary.get_term(ip);
@@ -118,7 +118,7 @@ impl Graph for InfGraph {
                     .map(move |(pi, chunk)| {
                         let p = self
                             .dictionary
-                            .get_term(NodeDictionary::idx_to_prop_idx(pi));
+                            .get_term(NodeDictionary::offset_to_prop_idx(pi));
                         let start_index = first_pair(&chunk.os(), oi);
                         chunk.os()[start_index..]
                             .iter()
@@ -144,7 +144,7 @@ impl Graph for InfGraph {
         U: TTerm + ?Sized,
     {
         if let (Some(si), Some(pi)) = (self.dictionary.get_index(s), self.dictionary.get_index(p)) {
-            let idx = NodeDictionary::prop_idx_to_idx(pi);
+            let idx = NodeDictionary::prop_idx_to_offset(pi);
             let chunk = &self.store.elem()[idx];
             if !chunk.so().is_empty() {
                 let s = self.dictionary.get_term(si);
@@ -187,7 +187,7 @@ impl Graph for InfGraph {
                             Some(Ok(StreamedTriple::by_term_refs(
                                 s,
                                 self.dictionary
-                                    .get_term(NodeDictionary::idx_to_prop_idx(pi)),
+                                    .get_term(NodeDictionary::offset_to_prop_idx(pi)),
                                 o,
                             )))
                         } else {
@@ -207,7 +207,7 @@ impl Graph for InfGraph {
         U: TTerm + ?Sized,
     {
         if let (Some(pi), Some(oi)) = (self.dictionary.get_index(p), self.dictionary.get_index(o)) {
-            let idx = NodeDictionary::prop_idx_to_idx(pi);
+            let idx = NodeDictionary::prop_idx_to_offset(pi);
             let chunk = &self.store.elem()[idx];
             if !chunk.os().is_empty() {
                 let p = self.dictionary.get_term(pi);
@@ -249,7 +249,7 @@ impl Graph for InfGraph {
             self.dictionary.get_index(p),
             self.dictionary.get_index(o),
         ) {
-            let idx = NodeDictionary::prop_idx_to_idx(pi);
+            let idx = NodeDictionary::prop_idx_to_offset(pi);
             let chunk = &self.store.elem()[idx];
             if chunk.so().is_empty() {
                 Box::from(std::iter::empty())
@@ -332,7 +332,7 @@ impl InfGraph {
     }
 
     fn close_on(&mut self, index: u32) {
-        let ip_to_store = NodeDictionary::prop_idx_to_idx(index as u64);
+        let ip_to_store = NodeDictionary::prop_idx_to_offset(index as u64);
         self.close_on_raw(ip_to_store);
     }
 
@@ -359,7 +359,7 @@ impl InfGraph {
         if let Some(pairs) = self
             .store
             .elem()
-            .get(NodeDictionary::prop_idx_to_idx(
+            .get(NodeDictionary::prop_idx_to_offset(
                 NodeDictionary::rdftype as u64,
             ))
         {

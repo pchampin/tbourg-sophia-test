@@ -231,11 +231,11 @@ impl NodeDictionary {
         self.resources.len() as u64 + Self::START_INDEX as u64
     }
 
-    pub fn prop_idx_to_idx(prop_idx: u64) -> usize {
+    pub fn prop_idx_to_offset(prop_idx: u64) -> usize {
         Self::START_INDEX as usize - prop_idx as usize - 1
     }
 
-    pub fn idx_to_prop_idx(idx: usize) -> u64 {
+    pub fn offset_to_prop_idx(idx: usize) -> u64 {
         Self::START_INDEX as u64 - idx as u64 - 1
     }
 

@@ -117,7 +117,7 @@ impl TripleStore {
 
     pub(super) fn add_triple(&mut self, triple: [u64; 3]) {
         let [is, ip, io] = triple;
-        let ip_to_store = NodeDictionary::prop_idx_to_idx(ip);
+        let ip_to_store = NodeDictionary::prop_idx_to_offset(ip);
         self.ensure_prop(ip_to_store);
         self.add_triple_raw(is, ip_to_store, io);
     }

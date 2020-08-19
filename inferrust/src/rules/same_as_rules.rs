@@ -18,7 +18,7 @@ use crate::rules::*;
 //  */
 fn apply_same_as_rule(ts: &TripleStore) -> RuleResult {
     let mut output = vec![];
-    let sameas_chunk = ts.elem().get(NodeDictionary::prop_idx_to_idx(
+    let sameas_chunk = ts.elem().get(NodeDictionary::prop_idx_to_offset(
         NodeDictionary::owlsameAs as u64,
     ));
     if let Some(sameas_chunk) = sameas_chunk {
@@ -26,7 +26,7 @@ fn apply_same_as_rule(ts: &TripleStore) -> RuleResult {
             output.push([same[1], NodeDictionary::owlsameAs as u64, same[0]]);
             if same[0] < NodeDictionary::START_INDEX as u64 {
                 // EQ-REP-P
-                if let Some(pairs) = ts.elem().get(NodeDictionary::prop_idx_to_idx(same[0])) {
+                if let Some(pairs) = ts.elem().get(NodeDictionary::prop_idx_to_offset(same[0])) {
                     for [si, oi] in pairs.so() {
                         // TODO: ensure that same[1] is a property index
                         output.push([*si, same[1], *oi]);
@@ -34,7 +34,7 @@ fn apply_same_as_rule(ts: &TripleStore) -> RuleResult {
                 }
             } else {
                 for (idx, chunk) in ts.elem().iter().enumerate() {
-                    let pi = NodeDictionary::idx_to_prop_idx(idx);
+                    let pi = NodeDictionary::offset_to_prop_idx(idx);
                     if pi == NodeDictionary::owlsameAs as u64 {
                         continue;
                     }

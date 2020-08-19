@@ -69,7 +69,7 @@ fn apply_alpha_rule(
                     Ordering::Equal => {
                         output.push([
                             values[id_s],
-                            NodeDictionary::idx_to_prop_idx(values[id_p] as usize),
+                            NodeDictionary::offset_to_prop_idx(values[id_p] as usize),
                             values[id_o],
                         ]);
                         last_number += 1;
@@ -111,39 +111,39 @@ fn apply_alpha_rule(
 }
 
 pub fn CAX_SCO(ts: &TripleStore) -> RuleResult {
-    let id_1 = NodeDictionary::prop_idx_to_idx(NodeDictionary::rdfssubClassOf as u64) as u64;
-    let id_2 = NodeDictionary::prop_idx_to_idx(NodeDictionary::rdftype as u64) as u64;
+    let id_1 = NodeDictionary::prop_idx_to_offset(NodeDictionary::rdfssubClassOf as u64) as u64;
+    let id_2 = NodeDictionary::prop_idx_to_offset(NodeDictionary::rdftype as u64) as u64;
     apply_alpha_rule(ts, id_1, id_2, 3, 4, 2)
 }
 
 pub fn CAX_EQC1(ts: &TripleStore) -> RuleResult {
-    let id_1 = NodeDictionary::prop_idx_to_idx(NodeDictionary::owlequivalentClass as u64) as u64;
-    let id_2 = NodeDictionary::prop_idx_to_idx(NodeDictionary::rdftype as u64) as u64;
+    let id_1 = NodeDictionary::prop_idx_to_offset(NodeDictionary::owlequivalentClass as u64) as u64;
+    let id_2 = NodeDictionary::prop_idx_to_offset(NodeDictionary::rdftype as u64) as u64;
     apply_alpha_rule(ts, id_1, id_2, 3, 4, 2)
 }
 
 // CAX-EQC2 is implied cause a = b -> b = a
 
 pub fn SCM_DOM1(ts: &TripleStore) -> RuleResult {
-    let id_1 = NodeDictionary::prop_idx_to_idx(NodeDictionary::rdfssubClassOf as u64) as u64;
-    let id_2 = NodeDictionary::prop_idx_to_idx(NodeDictionary::rdfsdomain as u64) as u64;
+    let id_1 = NodeDictionary::prop_idx_to_offset(NodeDictionary::rdfssubClassOf as u64) as u64;
+    let id_2 = NodeDictionary::prop_idx_to_offset(NodeDictionary::rdfsdomain as u64) as u64;
     apply_alpha_rule(ts, id_1, id_2, 3, 4, 2)
 }
 
 pub fn SCM_DOM2(ts: &TripleStore) -> RuleResult {
-    let id_1 = NodeDictionary::prop_idx_to_idx(NodeDictionary::rdfsdomain as u64) as u64;
-    let id_2 = NodeDictionary::prop_idx_to_idx(NodeDictionary::rdfssubPropertyOf as u64) as u64;
+    let id_1 = NodeDictionary::prop_idx_to_offset(NodeDictionary::rdfsdomain as u64) as u64;
+    let id_2 = NodeDictionary::prop_idx_to_offset(NodeDictionary::rdfssubPropertyOf as u64) as u64;
     apply_alpha_rule(ts, id_1, id_2, 3, 1, 2)
 }
 
 pub fn SCM_RNG1(ts: &TripleStore) -> RuleResult {
-    let id_1 = NodeDictionary::prop_idx_to_idx(NodeDictionary::rdfssubClassOf as u64) as u64;
-    let id_2 = NodeDictionary::prop_idx_to_idx(NodeDictionary::rdfsrange as u64) as u64;
+    let id_1 = NodeDictionary::prop_idx_to_offset(NodeDictionary::rdfssubClassOf as u64) as u64;
+    let id_2 = NodeDictionary::prop_idx_to_offset(NodeDictionary::rdfsrange as u64) as u64;
     apply_alpha_rule(ts, id_1, id_2, 3, 4, 2)
 }
 
 pub fn SCM_RNG2(ts: &TripleStore) -> RuleResult {
-    let id_1 = NodeDictionary::prop_idx_to_idx(NodeDictionary::rdfsrange as u64) as u64;
-    let id_2 = NodeDictionary::prop_idx_to_idx(NodeDictionary::rdfssubPropertyOf as u64) as u64;
+    let id_1 = NodeDictionary::prop_idx_to_offset(NodeDictionary::rdfsrange as u64) as u64;
+    let id_2 = NodeDictionary::prop_idx_to_offset(NodeDictionary::rdfssubPropertyOf as u64) as u64;
     apply_alpha_rule(ts, id_1, id_2, 3, 1, 2)
 }
