@@ -289,8 +289,9 @@ impl InfGraph {
         &mut self.store
     }
     #[inline]
-    pub fn join_store(&mut self, other: &TripleStore) {
-        self.store = TripleStore::join(&self.store, &other);
+    pub fn merge_store(&mut self, mut other: TripleStore) {
+        other.sort();
+        self.store.merge(other);
         self.store.remap_res_to_prop(self.dictionary.remapped());
     }
 
@@ -309,12 +310,13 @@ impl InfGraph {
         match &profile.after_rules {
             Some(rule) => {
                 rule(self);
+                self.store.sort();
             }
             None => (),
         }
     }
 
-    pub fn close(&mut self, profile: &mut ClosureProfile) {
+    fn close(&mut self, profile: &mut ClosureProfile) {
         if profile.on_sco {
             self.close_on(NodeDictionary::rdfssubClassOf);
         }
@@ -332,12 +334,8 @@ impl InfGraph {
     }
 
     fn close_on(&mut self, index: u32) {
-        let ip_to_store = NodeDictionary::prop_idx_to_offset(index as u64);
-        self.close_on_raw(ip_to_store);
-    }
-
-    fn close_on_raw(&mut self, raw_index: usize) {
-        let pairs = self.store.elem().get(raw_index);
+        let offset = NodeDictionary::prop_idx_to_offset(index as u64);
+        let pairs = self.store.elem().get(offset);
         if pairs == None {
             return;
         }
@@ -349,7 +347,7 @@ impl InfGraph {
         let closure = tc_g.close();
         for (s, os) in closure.iter() {
             for o in os.iter() {
-                self.store.add_triple_raw(*s, raw_index, *o);
+                self.store.add_triple_raw(*s, offset, *o);
             }
         }
         self.store.sort();

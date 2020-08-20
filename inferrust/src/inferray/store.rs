@@ -20,10 +20,10 @@
 use itertools::Itertools;
 use once_cell::sync::OnceCell;
 use rayon::prelude::*;
-use std::cmp::Ordering;
 
 use super::NodeDictionary;
 use crate::rules::*;
+use crate::utils::merge_sort;
 
 /// See [module documentation](./index.html).
 #[derive(Default, PartialEq, Debug, Clone)]
@@ -35,7 +35,7 @@ pub struct TripleStore {
 }
 
 /// See [module documentation](./index.html).
-#[derive(Default, PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct Chunk {
     // subject-object list
     so: Vec<[u64; 2]>,
@@ -50,28 +50,11 @@ impl Chunk {
     // * so must be sorted
     // * so_dirty must be false
 
-    fn new(so: Vec<[u64; 2]>) -> Chunk {
-        #[cfg(debug_assertions)]
-        {   // later, when slice::is_sorted() is stabilized,
-            // it should be used instead of the loop below
-            for i in 1..so.len() {
-                assert!(so[i] >= so[i - 1]);
-            }
-        }
+    pub fn empty() -> Chunk {
         Chunk {
-            so,
+            so: vec![],
             os: OnceCell::new(),
             so_dirty: false,
-        }
-    }
-
-    fn so_sort(&mut self) -> usize {
-        if self.so_dirty {
-            self.so_dirty = false;
-            self.os = OnceCell::new();
-            bucket_sort_pairs(&mut self.so)
-        } else {
-            self.so.len()
         }
     }
 
@@ -88,6 +71,29 @@ impl Chunk {
             bucket_sort_pairs(&mut v);
             v
         })
+    }
+
+    pub fn len(&self) -> usize {
+        debug_assert!(!self.so_dirty);
+        self.so.len()
+    }
+
+    pub fn merge(&mut self, other: Chunk) {
+        debug_assert!(!self.so_dirty);
+        debug_assert!(!other.so_dirty);
+        let old_so = std::mem::replace(&mut self.so, vec![]);
+        self.so = merge_sort(old_so, other.so);
+        self.os = OnceCell::new();
+    }
+
+    fn so_sort(&mut self) -> usize {
+        if self.so_dirty {
+            self.so_dirty = false;
+            self.os = OnceCell::new();
+            bucket_sort_pairs(&mut self.so)
+        } else {
+            self.so.len()
+        }
     }
 
     fn remap_res_to_prop(&mut self, map: &[[u64; 2]]) {
@@ -134,7 +140,7 @@ impl TripleStore {
     #[inline]
     pub fn ensure_prop(&mut self, ip: usize) {
         if ip >= self.elem.len() {
-            self.elem.resize_with(ip + 1, Default::default);
+            self.elem.resize_with(ip + 1, Chunk::empty);
         }
     }
 
@@ -146,7 +152,7 @@ impl TripleStore {
         self.elem[ip].add_so([is, io]);
     }
 
-    pub fn sort(&mut self) {
+    pub(super) fn sort(&mut self) {
         if self.elem.is_empty() {
             return;
         }
@@ -163,103 +169,31 @@ impl TripleStore {
         self.size
     }
 
-    pub(super) fn join(a: &Self, b: &Self) -> Self {
-        let len = std::cmp::max(a.elem.len(), b.elem.len());
-        let mut chunks: Vec<Chunk> = Vec::new();
-        let mut size = 0;
-        if b.elem.is_empty() {
-            chunks = a.elem.clone();
-            size = a.size;
-        } else {
-            for i in 0..len {
-                let mut new_so: Vec<[u64; 2]> = Vec::new();
-                let mut original = &vec![];
-                let mut infered = &vec![];
-                if let Some(opt) = a.elem.get(i) {
-                    original = opt.so();
-                }
-                if let Some(opt) = b.elem.get(i) {
-                    infered = opt.so();
-                }
-                match (original.is_empty(), infered.is_empty()) {
-                    (false, false) => {
-                        let mut index_o = 0;
-                        let mut index_i = 0;
-                        let mut new_o = true;
-                        let mut new_i = true;
-                        let mut s_o = 0;
-                        let mut o_o = 0;
-                        let mut s_i = 0;
-                        let mut o_i = 0;
-                        while index_o < original.len() || index_i < infered.len() {
-                            if new_o {
-                                if index_o < original.len() {
-                                    let pair_o = original[index_o];
-                                    s_o = pair_o[0];
-                                    o_o = pair_o[1];
-                                } else {
-                                    s_o = u64::max_value();
-                                    o_o = u64::max_value();
-                                }
-                            }
-                            if new_i {
-                                if index_i < infered.len() {
-                                    let pair_i = infered[index_i];
-                                    s_i = pair_i[0];
-                                    o_i = pair_i[1];
-                                } else {
-                                    s_i = u64::max_value();
-                                    o_i = u64::max_value();
-                                }
-                            }
-                            new_o = false;
-                            new_i = false;
-                            match s_o.cmp(&s_i) {
-                                Ordering::Less => {
-                                    new_so.push([s_o, o_o]);
-                                    index_o += 1;
-                                    new_o = true;
-                                }
-                                Ordering::Greater => {
-                                    new_so.push([s_i, o_i]);
-                                    index_i += 1;
-                                    new_i = true;
-                                }
-                                Ordering::Equal => match o_o.cmp(&o_i) {
-                                    Ordering::Less => {
-                                        new_so.push([s_o, o_o]);
-                                        index_o += 1;
-                                        new_o = true;
-                                    }
-                                    Ordering::Greater => {
-                                        new_so.push([s_i, o_i]);
-                                        index_i += 1;
-                                        new_i = true;
-                                    }
-                                    Ordering::Equal => {
-                                        new_so.push([s_o, o_o]);
-                                        index_o += 1;
-                                        new_o = true;
-                                        index_i += 1;
-                                        new_i = true;
-                                    }
-                                },
-                            }
-                        }
-                    }
-                    (false, true) => {
-                        new_so = original.clone();
-                    }
-                    (true, false) => {
-                        new_so = infered.clone();
-                    }
-                    (true, true) => (),
-                }
-                size += new_so.len();
-                chunks.push(Chunk::new(new_so));
+    pub(super) fn merge(&mut self, mut other: Self) {
+        if other.size == 0 {
+            return;
+        }
+        let s_len = self.elem.len();
+        let o_len = other.elem.len();
+        self.size = 0;
+        let mut other_chunks = other.elem.drain(..);
+    
+        for i in 0..s_len.min(o_len) {
+            let o_chunk = other_chunks.next().unwrap();
+            self.elem[i].merge(o_chunk);
+            self.size += self.elem[i].len();
+        }
+        if s_len > o_len {
+            for chunk in &self.elem[o_len..] {
+                self.size += chunk.so().len();
+            }
+        } else if s_len < o_len {
+            self.elem.reserve(o_len-s_len);
+            for chunk in other_chunks {
+                self.size += chunk.len();
+                self.elem.push(chunk);
             }
         }
-        Self { elem: chunks, size }
     }
 }
 
@@ -339,104 +273,27 @@ fn reverse_pairs(pairs: &mut [[u64; 2]]) {
     }
 }
 
-#[test]
-fn test_sort() {
-    let mut pairs = vec![[2, 1], [1, 3]];
-    bucket_sort_pairs(&mut pairs);
-    let expected = [[1, 3], [2, 1]];
-    assert_eq!(pairs, expected);
-    let mut pairs = vec![[2, 1], [1, 3], [2, 1]];
-    bucket_sort_pairs(&mut pairs);
-    let expected = [[1, 3], [2, 1]];
-    assert_eq!(pairs, expected);
-    let mut pairs = vec![[2, 1], [1, 3], [1, 3]];
-    bucket_sort_pairs(&mut pairs);
-    let expected = [[1, 3], [2, 1]];
-    assert_eq!(pairs, expected);
-    let mut pairs = vec![[2, 3], [2, 1]];
-    bucket_sort_pairs(&mut pairs);
-    let expected = [[2, 1], [2, 3]];
-    assert_eq!(pairs, expected);
-}
+#[cfg(test)]
+mod test {
+    use super::*;
 
-#[test]
-fn test_join() {
-    let a = TripleStore {
-        elem: vec![Chunk::default()],
-        size: 0,
-    };
-    let b = TripleStore {
-        elem: vec![Chunk::default()],
-        size: 0,
-    };
-    let expected = TripleStore {
-        elem: vec![Chunk::default()],
-        size: 0,
-    };
-    assert_eq!(TripleStore::join(&a, &b), expected);
-    let a = TripleStore {
-        elem: vec![Chunk::new(vec![[1, 1]])],
-        size: 1,
-    };
-    let b = TripleStore {
-        elem: vec![Chunk::default()],
-        size: 0,
-    };
-    let expected = TripleStore {
-        elem: vec![Chunk::new(vec![[1, 1]])],
-        size: 1,
-    };
-    assert_eq!(TripleStore::join(&a, &b), expected);
-    let a = TripleStore {
-        elem: vec![Chunk::default()],
-        size: 0,
-    };
-    let b = TripleStore {
-        elem: vec![Chunk::new(vec![[1, 1]])],
-        size: 1,
-    };
-    let expected = TripleStore {
-        elem: vec![Chunk::new(vec![[1, 1]])],
-        size: 1,
-    };
-    assert_eq!(TripleStore::join(&a, &b), expected);
-    let a = TripleStore {
-        elem: vec![Chunk::new(vec![[1, 1]])],
-        size: 1,
-    };
-    let b = TripleStore {
-        elem: vec![Chunk::new(vec![[1, 1]])],
-        size: 1,
-    };
-    let expected = TripleStore {
-        elem: vec![Chunk::new(vec![[1, 1]])],
-        size: 1,
-    };
-    assert_eq!(TripleStore::join(&a, &b), expected);
-    let a = TripleStore {
-        elem: vec![Chunk::new(vec![[1, 1], [1, 2]])],
-        size: 2,
-    };
-    let b = TripleStore {
-        elem: vec![Chunk::new(vec![[1, 1]])],
-        size: 1,
-    };
-    let expected = TripleStore {
-        elem: vec![Chunk::new(vec![[1, 1], [1, 2]])],
-        size: 2,
-    };
-    assert_eq!(TripleStore::join(&a, &b), expected);
-    let a = TripleStore {
-        elem: vec![Chunk::new(vec![[1, 2]])],
-        size: 2,
-    };
-    let b = TripleStore {
-        elem: vec![Chunk::new(vec![[1, 1]])],
-        size: 1,
-    };
-    let expected = TripleStore {
-        elem: vec![Chunk::new(vec![[1, 1], [1, 2]])],
-        size: 2,
-    };
-    assert_eq!(TripleStore::join(&a, &b), expected);
+    #[test]
+    fn test_sort() {
+        let mut pairs = vec![[2, 1], [1, 3]];
+        bucket_sort_pairs(&mut pairs);
+        let expected = [[1, 3], [2, 1]];
+        assert_eq!(pairs, expected);
+        let mut pairs = vec![[2, 1], [1, 3], [2, 1]];
+        bucket_sort_pairs(&mut pairs);
+        let expected = [[1, 3], [2, 1]];
+        assert_eq!(pairs, expected);
+        let mut pairs = vec![[2, 1], [1, 3], [1, 3]];
+        bucket_sort_pairs(&mut pairs);
+        let expected = [[1, 3], [2, 1]];
+        assert_eq!(pairs, expected);
+        let mut pairs = vec![[2, 3], [2, 1]];
+        bucket_sort_pairs(&mut pairs);
+        let expected = [[2, 1], [2, 3]];
+        assert_eq!(pairs, expected);
+    }    
 }

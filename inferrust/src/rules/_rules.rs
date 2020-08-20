@@ -22,8 +22,7 @@ impl RuleSet for Vec<Box<Rule>> {
         let mut outputs = TripleStore::default();
         let ts = graph.store();
         outputs.add_all(self.par_iter().map(|rule| rule(ts)).collect());
-        outputs.sort();
-        graph.join_store(&outputs);
+        graph.merge_store(outputs);
     }
 
     fn is_empty(&self) -> bool {

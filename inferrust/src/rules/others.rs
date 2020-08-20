@@ -154,5 +154,4 @@ pub fn finalize(graph: &mut InfGraph) {
             graph.store_mut().add_triple_raw(e, type_index, res);
         }
     });
-    graph.store_mut().sort();
 }
