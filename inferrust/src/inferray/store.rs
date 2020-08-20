@@ -17,13 +17,11 @@
 /// [`TripleStore`]: ./struct.TripleStore.html
 /// [`Chunk`]: ./struct.Chunk.html
 
-use itertools::Itertools;
-use once_cell::sync::OnceCell;
 use rayon::prelude::*;
 
+use super::Chunk;
 use super::NodeDictionary;
 use crate::rules::*;
-use crate::utils::merge_sort;
 
 /// See [module documentation](./index.html).
 #[derive(Default, PartialEq, Debug, Clone)]
@@ -32,87 +30,6 @@ pub struct TripleStore {
     elem: Vec<Chunk>,
     /// total number of triples in all the chunks
     size: usize,
-}
-
-/// See [module documentation](./index.html).
-#[derive(PartialEq, Debug, Clone)]
-pub struct Chunk {
-    // subject-object list
-    so: Vec<[u64; 2]>,
-    // object-subject list (built lazily)
-    os: OnceCell<Vec<[u64; 2]>>,
-    // dirty-flag, indicating that so is not correctly sorted
-    so_dirty: bool,
-}
-
-impl Chunk {
-    // type-invariant:
-    // * so must be sorted
-    // * so_dirty must be false
-
-    pub fn empty() -> Chunk {
-        Chunk {
-            so: vec![],
-            os: OnceCell::new(),
-            so_dirty: false,
-        }
-    }
-
-    pub fn so(&self) -> &Vec<[u64; 2]> {
-        debug_assert!(!self.so_dirty);
-        &self.so
-    }
-
-    pub fn os(&self) -> &Vec<[u64; 2]> {
-        debug_assert!(!self.so_dirty);
-        self.os.get_or_init(|| {
-            let mut v = self.so.clone();
-            reverse_pairs(&mut v);
-            bucket_sort_pairs(&mut v);
-            v
-        })
-    }
-
-    pub fn len(&self) -> usize {
-        debug_assert!(!self.so_dirty);
-        self.so.len()
-    }
-
-    pub fn merge(&mut self, other: Chunk) {
-        debug_assert!(!self.so_dirty);
-        debug_assert!(!other.so_dirty);
-        let old_so = std::mem::replace(&mut self.so, vec![]);
-        self.so = merge_sort(old_so, other.so);
-        self.os = OnceCell::new();
-    }
-
-    fn so_sort(&mut self) -> usize {
-        if self.so_dirty {
-            self.so_dirty = false;
-            self.os = OnceCell::new();
-            bucket_sort_pairs(&mut self.so)
-        } else {
-            self.so.len()
-        }
-    }
-
-    fn remap_res_to_prop(&mut self, map: &[[u64; 2]]) {
-        for [old, new] in map {
-            for pair in self.so.iter_mut() {
-                for val in pair.iter_mut() {
-                    if *val == *old {
-                        self.so_dirty = true;
-                        *val = *new;
-                    }
-                }
-            }
-        }
-    }
-
-    fn add_so(&mut self, so: [u64; 2]) {
-        self.so_dirty = true;
-        self.so.push(so);
-    }
 }
 
 impl TripleStore {
@@ -195,105 +112,4 @@ impl TripleStore {
             }
         }
     }
-}
-
-/// Sort the pairs and remove duplicates
-fn bucket_sort_pairs(pairs: &mut Vec<[u64; 2]>) -> usize {
-    if pairs.is_empty() {
-        return 0;
-    }
-    let (min, max) = pairs
-        .iter()
-        .map(|pair| pair[0])
-        .minmax()
-        .into_option()
-        .unwrap_or((0, 0));
-    let width = (max - min + 1) as usize;
-    let mut hist: Vec<usize> = vec![0; width];
-    let mut cumul: Vec<usize> = vec![0; width];
-    build_hist(pairs, min, 0, &mut hist);
-    let hist2 = hist.to_vec();
-    build_cumul(&hist, &mut cumul);
-    let len = pairs.len();
-    let mut objects = vec![0; len];
-    for val in pairs.iter() {
-        let val_s = val[0];
-        let val_o = val[1];
-        let idx = (val_s - min) as usize;
-        let pos = cumul[idx];
-        let remaining = hist[idx];
-        let obj_idx = (pos + remaining - 1) as usize;
-        hist[idx] -= 1;
-        objects[obj_idx] = val_o;
-    }
-
-    for i in 0..(width - 1) {
-        quickersort::sort(&mut objects[cumul[i]..cumul[i + 1]]);
-    }
-    quickersort::sort(&mut objects[cumul[width - 1]..len]);
-    let mut j = 0;
-    let mut l = 0;
-    let mut last = 0;
-    for (i, val) in hist2.iter().enumerate() {
-        let s = min + i as u64;
-        for k in 0..*val {
-            let o = objects[l];
-            l += 1;
-            if k == 0 || o != last {
-                pairs[j] = [s, o];
-                j += 1;
-            }
-            last = o;
-        }
-    }
-    pairs.truncate(j);
-    j
-}
-
-#[inline]
-
-fn build_hist(pairs: &[[u64; 2]], min: u64, pair_elem: usize, hist: &mut [usize]) {
-    for pair in pairs {
-        hist[(pair[pair_elem] - min) as usize] += 1;
-    }
-}
-
-#[inline]
-
-fn build_cumul(hist: &[usize], cumul: &mut [usize]) {
-    for i in 1..hist.len() {
-        cumul[i] = cumul[i - 1] + hist[i - 1];
-    }
-}
-
-
-fn reverse_pairs(pairs: &mut [[u64; 2]]) {
-    for pair in pairs.iter_mut() {
-        pair.swap(0, 1);
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[test]
-    fn test_sort() {
-        let mut pairs = vec![[2, 1], [1, 3]];
-        bucket_sort_pairs(&mut pairs);
-        let expected = [[1, 3], [2, 1]];
-        assert_eq!(pairs, expected);
-        let mut pairs = vec![[2, 1], [1, 3], [2, 1]];
-        bucket_sort_pairs(&mut pairs);
-        let expected = [[1, 3], [2, 1]];
-        assert_eq!(pairs, expected);
-        let mut pairs = vec![[2, 1], [1, 3], [1, 3]];
-        bucket_sort_pairs(&mut pairs);
-        let expected = [[1, 3], [2, 1]];
-        assert_eq!(pairs, expected);
-        let mut pairs = vec![[2, 3], [2, 1]];
-        bucket_sort_pairs(&mut pairs);
-        let expected = [[2, 1], [2, 3]];
-        assert_eq!(pairs, expected);
-    }    
 }

@@ -1,5 +1,8 @@
 //! In-memory structures to store the RDF graph
 
+mod chunk;
+pub(crate) use self::chunk::*;
+
 mod dictionary;
 pub(crate) use self::dictionary::*;
 
