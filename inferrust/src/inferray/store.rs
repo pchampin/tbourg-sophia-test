@@ -11,17 +11,12 @@
 /// * all triples with a given predicate and subject;
 /// * all triples with a given predicate and object.
 ///
-/// Note also that when a [`Chunk`] is built, only the (subject-object) list is built;
-/// the (object-subject) list is built lazily whenever it is required.
-///
 /// [`TripleStore`]: ./struct.TripleStore.html
-/// [`Chunk`]: ./struct.Chunk.html
-
-use rayon::prelude::*;
+/// [`Chunk`]: ../chunk/index.html
 
 use super::Chunk;
 use super::NodeDictionary;
-use crate::rules::*;
+use crate::closure::*;
 
 /// See [module documentation](./index.html).
 #[derive(Default, PartialEq, Debug, Clone)]
@@ -33,80 +28,68 @@ pub(crate) struct TripleStore {
 }
 
 impl TripleStore {
-    pub fn new<'a, I, J>(tripless: I) -> Self
+    /// Collect integer-triples into a sorted TripleSTore.
+    pub fn new<'a, I>(triples: I) -> Self
     where
-        I: IntoIterator<Item=J>,
-        J: IntoIterator<Item=&'a [u64; 3]>
+        I: IntoIterator<Item=&'a [u64; 3]>
     {
         let mut proto_chunks = vec![];
-        for triples in tripless {
-            for triple in triples {
-                let [is, ip, io] = triple;
-                let op = NodeDictionary::prop_idx_to_offset(*ip);
+        for triple in triples {
+            let [is, ip, io] = triple;
+            let op = NodeDictionary::prop_idx_to_offset(*ip);
+            if op >= proto_chunks.len() {
                 proto_chunks.resize_with(op+1, Vec::new);
-                proto_chunks[op].push([*is, *io]);
             }
+            proto_chunks[op].push([*is, *io]);
         }
         let chunks: Vec<Chunk> = proto_chunks.into_iter()
             .map(|v| v[..].into())
             .collect();
         let size = chunks.iter().map(|c| c.len()).sum();
+        #[cfg(debug_assertions)]
+        debug_assert!(chunks.iter().map(Chunk::is_sorted).all(|b| b));
         Self { chunks, size }
     }
 
+    /// The total number of triples in this store.
     #[inline]
-    pub fn chunks(&self) -> &Vec<Chunk> {
-        &self.chunks
-    }
-
-    pub(super) fn add_triple(&mut self, triple: [u64; 3]) {
-        let [is, ip, io] = triple;
-        let ip_to_store = NodeDictionary::prop_idx_to_offset(ip);
-        self.ensure_prop(ip_to_store);
-        self.add_triple_raw(is, ip_to_store, io);
-    }
-
-    pub fn add_all(&mut self, others: Vec<RuleResult>) {
-        for other in others.into_iter() {
-            for t in other {
-                self.add_triple(t);
-            }
-        }
-    }
-
-    /// Ensure that `self.chunks` has an array at index `ip`
-    #[inline]
-    pub fn ensure_prop(&mut self, ip: usize) {
-        if ip >= self.chunks.len() {
-            self.chunks.resize_with(ip + 1, Chunk::empty);
-        }
-    }
-
-    /// # Pre-condition
-    /// `self.chunks` must have an element at index `ip`
-    #[inline]
-    pub fn add_triple_raw(&mut self, is: u64, ip: usize, io: u64) {
-        self.size += 1;
-        self.chunks[ip].add_so([is, io]);
-    }
-
-    pub(super) fn sort(&mut self) {
-        if self.chunks.is_empty() {
-            return;
-        }
-        self.size = self.chunks.par_iter_mut().map(|chunk| chunk.so_sort()).sum();
-    }
-
-    pub(super) fn remap_res_to_prop(&mut self, map: &[[u64; 2]]) {
-        for chunk in &mut self.chunks {
-            chunk.remap_res_to_prop(map);
-        }
-    }
-
     pub fn size(&self) -> usize {
         self.size
     }
 
+    /// Borrow the chunks of this store.
+    #[inline]
+    pub fn chunks(&self) -> &[Chunk] {
+        &self.chunks
+    }
+
+    #[cfg(debug_assertions)]
+    /// For tests only. Checks that this store is sorted.
+    pub fn is_sorted(&self) -> bool {
+        self.chunks.iter().map(Chunk::is_sorted).all(|b| b)
+        &&
+        self.chunks.iter().map(Chunk::len).sum::<usize>() == self.size
+    }
+
+    /// Computes the transitive closure of the given property
+    pub(super) fn transitive_closure(&mut self, ip: u32) {
+        let offset = NodeDictionary::prop_idx_to_offset(ip as u64);
+        if offset >= self.chunks.len() || self.chunks[offset].is_empty() {
+            return
+        }
+        let old_chunk = &self.chunks[offset];
+        let old_len = old_chunk.len();
+        let closure = ClosureGraph::from(old_chunk.so().to_vec()).close();
+        let new_chunk: Chunk = closure.iter()
+            .flat_map(|(s, os)| os.iter().map(move |o| [*s, *o]))
+            .collect::<Vec<_>>()[..]
+            .into();
+        let new_len = new_chunk.len();
+        self.chunks[offset] = new_chunk;
+        self.size += new_len - old_len;
+    }
+
+    /// Merge triples from another store into this one.
     pub(super) fn merge(&mut self, mut other: Self) {
         if other.size == 0 {
             return;
@@ -131,6 +114,21 @@ impl TripleStore {
                 self.size += chunk.len();
                 self.chunks.push(chunk);
             }
+        }
+    }
+
+    /// Update this chunk with the given translation map/
+    ///
+    /// This is used when resources (index > START_INDEX)
+    /// have been requalified as properties (index < START_INDEX).
+    ///
+    /// IMPORTANT: this method is not used yet,
+    /// but will be required later when rules such as EQ-REP-P
+    /// are correctly implemented.
+    #[allow(dead_code)]
+    pub(super) fn remap(&mut self, map: &[[u64; 2]]) {
+        for chunk in &mut self.chunks {
+            chunk.remap(map);
         }
     }
 }

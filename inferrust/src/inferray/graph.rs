@@ -1,3 +1,5 @@
+//! Implementation of `sophia::graph::Graph` that supports inferences.
+
 use sophia::graph::GTripleSource;
 use sophia::graph::Graph;
 use sophia::term::{ArcTerm, TTerm};
@@ -6,12 +8,12 @@ use sophia::triple::streaming_mode::{ByTermRefs, StreamedTriple};
 
 use std::convert::Infallible;
 
-use crate::closure::*;
 use crate::inferray::NodeDictionary;
 use crate::inferray::TripleStore;
 use crate::rules::*;
 use crate::utils::*;
 
+/// see [module documentation](./index.html)
 pub struct InfGraph {
     dictionary: NodeDictionary,
     store: TripleStore,
@@ -270,7 +272,6 @@ impl Graph for InfGraph {
 }
 
 impl InfGraph {
-
     /// Create a new `InfGraph` from the given triple source,
     /// to which the given inference regime (`profile`) is applied.
     pub fn new<TS>(ts: TS, profile: &mut RuleProfile) -> Result<Self, TS::Error>
@@ -282,6 +283,8 @@ impl InfGraph {
         Ok(this)
     }
 
+    /// The total number of triples (explicit + inferred)
+    /// in this graph.
     #[inline]
     pub fn size(&self) -> usize {
         self.store.size()
@@ -299,13 +302,13 @@ impl InfGraph {
         TS: TripleSource,
     {
         let mut dictionary = NodeDictionary::new();
-        let mut store = TripleStore::default();
-
+        let mut encoded = vec![];
         ts.for_each_triple(|t| {
             let rep = dictionary.encode_triple(&t);
-            store.add_triple(rep);
+            encoded.push(rep);
         })?;
-        store.remap_res_to_prop(dictionary.remapped());
+        encoded.iter_mut().for_each(|t| dictionary.remap_triple(t));
+        let store = TripleStore::new(&encoded);
         Ok(Self { dictionary, store })
     }
 
@@ -314,8 +317,7 @@ impl InfGraph {
     ///
     /// This can be used in tests to measure the processing time.
     pub fn process(&mut self, profile: &mut RuleProfile) {
-        self.store.sort();
-        self.close(&mut profile.cl_profile);
+        self.compute_transitive_closures(&mut profile.cl_profile);
         profile.before_rules.process(self);
         if profile.axiomatic_triples {
             self.init_axiomatic_triples();
@@ -323,65 +325,51 @@ impl InfGraph {
         profile.rules.process(self);
         match &profile.after_rules {
             Some(func) => {
-                let outputs = TripleStore::new(&[func(self)]);
-                self.merge_store(outputs);
+                self.merge_store(TripleStore::new(&func(self)));
             }
             None => (),
         }
+        #[cfg(debug_assertions)]
+        debug_assert!(self.store.is_sorted());
     }
 
+    /// Borrow the NodeDictionary of this graph.
     #[inline]
     pub(crate) fn dict(&self) -> &NodeDictionary {
         &self.dictionary
     }
 
+    /// Borrow the TripleStore of this graph.
     #[inline]
     pub(crate) fn store(&self) -> &TripleStore {
         &self.store
     }
 
+    /// Merge triples from another store.
+    ///
+    /// IMPORTANT: there is no reasoning involved when adding those triples;
+    /// they are dumpbly added to the ones alteady stored.
+    /// Actually, this is the method used internally by rules to add their result.
     #[inline]
-    pub(crate) fn merge_store(&mut self, mut other: TripleStore) {
-        other.sort();
+    pub(crate) fn merge_store(&mut self, other: TripleStore) {
         self.store.merge(other);
-        self.store.remap_res_to_prop(self.dictionary.remapped());
     }
 
-    fn close(&mut self, profile: &mut ClosureProfile) {
+    fn compute_transitive_closures(&mut self, profile: &mut ClosureProfile) {
         if profile.on_sco {
-            self.close_on(NodeDictionary::rdfssubClassOf);
+            self.store.transitive_closure(NodeDictionary::rdfssubClassOf);
         }
         if profile.on_spo {
-            self.close_on(NodeDictionary::rdfssubPropertyOf);
+            self.store.transitive_closure(NodeDictionary::rdfssubPropertyOf);
         }
         if profile.on_sa {
-            self.close_on(NodeDictionary::owlsameAs);
+            self.store.transitive_closure(NodeDictionary::owlsameAs);
         }
         if profile.on_trp {
             for tr_idx in self.get_tr_idx() {
-                self.close_on(tr_idx);
+                self.store.transitive_closure(tr_idx);
             }
         }
-    }
-
-    fn close_on(&mut self, index: u32) {
-        let offset = NodeDictionary::prop_idx_to_offset(index as u64);
-        let pairs = self.store.chunks().get(offset);
-        if pairs == None {
-            return;
-        }
-        let pairs = pairs.unwrap().so().clone();
-        if pairs.is_empty() {
-            return;
-        }
-        let mut tc_g = ClosureGraph::from(pairs);
-        let closure = tc_g.close();
-        for (s, os) in closure.iter() {
-            for o in os.iter() {
-                self.store.add_triple_raw(*s, offset, *o);
-            }
-        }
-        self.store.sort();
     }
 
     fn get_tr_idx(&mut self) -> Vec<u32> {
@@ -403,306 +391,248 @@ impl InfGraph {
         }
     }
 
-    pub fn init_axiomatic_triples(&mut self) {
-        self.store.add_triple([
+    fn init_axiomatic_triples(&mut self) {
+        let axiomatic_triples = [[
             NodeDictionary::rdftype as u64,
             NodeDictionary::rdftype as u64,
             NodeDictionary::rdfProperty as u64,
-        ]);
-        self.store.add_triple([
+            ],[
             NodeDictionary::rdfsubject as u64,
             NodeDictionary::rdftype as u64,
             NodeDictionary::rdfProperty as u64,
-        ]);
-        self.store.add_triple([
+            ],[
             NodeDictionary::rdfpredicate as u64,
             NodeDictionary::rdftype as u64,
             NodeDictionary::rdfProperty as u64,
-        ]);
-        self.store.add_triple([
+            ],[
             NodeDictionary::rdfobject as u64,
             NodeDictionary::rdftype as u64,
             NodeDictionary::rdfProperty as u64,
-        ]);
-        self.store.add_triple([
+            ],[
             NodeDictionary::rdffirst as u64,
             NodeDictionary::rdftype as u64,
             NodeDictionary::rdfProperty as u64,
-        ]);
-        self.store.add_triple([
+            ],[
             NodeDictionary::rdfrest as u64,
             NodeDictionary::rdftype as u64,
             NodeDictionary::rdfProperty as u64,
-        ]);
-        self.store.add_triple([
+            ],[
             NodeDictionary::rdfValue as u64,
             NodeDictionary::rdftype as u64,
             NodeDictionary::rdfProperty as u64,
-        ]);
-        self.store.add_triple([
+            ],[
             NodeDictionary::rdf_1 as u64,
             NodeDictionary::rdftype as u64,
             NodeDictionary::rdfProperty as u64,
-        ]);
-        self.store.add_triple([
+            ],[
             NodeDictionary::rdfnil as u64,
             NodeDictionary::rdftype as u64,
             NodeDictionary::rdfList,
-        ]);
+            ],[
         // Domain
-        self.store.add_triple([
             NodeDictionary::rdftype as u64,
             NodeDictionary::rdfsdomain as u64,
             NodeDictionary::rdfsResource,
-        ]);
-        self.store.add_triple([
+            ],[
             NodeDictionary::rdfsdomain as u64,
             NodeDictionary::rdfsdomain as u64,
             NodeDictionary::rdfProperty as u64,
-        ]);
-        self.store.add_triple([
+            ],[
             NodeDictionary::rdfsrange as u64,
             NodeDictionary::rdfsdomain as u64,
             NodeDictionary::rdfProperty as u64,
-        ]);
-        self.store.add_triple([
+            ],[
             NodeDictionary::rdfssubClassOf as u64,
             NodeDictionary::rdfsdomain as u64,
             NodeDictionary::rdfProperty as u64,
-        ]);
-        self.store.add_triple([
+            ],[
             NodeDictionary::rdfssubPropertyOf as u64,
             NodeDictionary::rdfsdomain as u64,
             NodeDictionary::rdfProperty as u64,
-        ]);
-        self.store.add_triple([
+            ],[
             NodeDictionary::rdfsubject as u64,
             NodeDictionary::rdfsdomain as u64,
             NodeDictionary::rdfStatement,
-        ]);
-        self.store.add_triple([
+            ],[
             NodeDictionary::rdfpredicate as u64,
             NodeDictionary::rdfsdomain as u64,
             NodeDictionary::rdfStatement,
-        ]);
-        self.store.add_triple([
+            ],[
             NodeDictionary::rdfobject as u64,
             NodeDictionary::rdfsdomain as u64,
             NodeDictionary::rdfStatement,
-        ]);
-        self.store.add_triple([
+            ],[
             NodeDictionary::rdfsMember as u64,
             NodeDictionary::rdfsdomain as u64,
             NodeDictionary::rdfsResource,
-        ]);
-        self.store.add_triple([
+            ],[
             NodeDictionary::rdffirst as u64,
             NodeDictionary::rdfsdomain as u64,
             NodeDictionary::rdfList,
-        ]);
-        self.store.add_triple([
+            ],[
             NodeDictionary::rdfrest as u64,
             NodeDictionary::rdfsdomain as u64,
             NodeDictionary::rdfList,
-        ]);
-        self.store.add_triple([
+            ],[
             NodeDictionary::rdfsSeeAlso as u64,
             NodeDictionary::rdfsdomain as u64,
             NodeDictionary::rdfsResource,
-        ]);
-        self.store.add_triple([
+            ],[
             NodeDictionary::rdfsisDefinedBy as u64,
             NodeDictionary::rdfsdomain as u64,
             NodeDictionary::rdfsResource,
-        ]);
-        self.store.add_triple([
+            ],[
             NodeDictionary::rdfsComment as u64,
             NodeDictionary::rdfsdomain as u64,
             NodeDictionary::rdfsResource,
-        ]);
-        self.store.add_triple([
+            ],[
             NodeDictionary::rdfsLabel as u64,
             NodeDictionary::rdfsdomain as u64,
             NodeDictionary::rdfsResource,
-        ]);
-        self.store.add_triple([
+            ],[
             NodeDictionary::rdfValue as u64,
             NodeDictionary::rdfsdomain as u64,
             NodeDictionary::rdfsResource,
-        ]);
-        // Range
-        self.store.add_triple([
+            ],[
+            // Range
             NodeDictionary::rdftype as u64,
             NodeDictionary::rdfsrange as u64,
             NodeDictionary::rdfsClass,
-        ]);
-        self.store.add_triple([
-            NodeDictionary::rdfsdomain as u64,
+            ],[
+                NodeDictionary::rdfsdomain as u64,
             NodeDictionary::rdfsrange as u64,
             NodeDictionary::rdfsClass,
-        ]);
-        self.store.add_triple([
+            ],[
             NodeDictionary::rdfsrange as u64,
             NodeDictionary::rdfsrange as u64,
             NodeDictionary::rdfsClass,
-        ]);
-        self.store.add_triple([
+            ],[
             NodeDictionary::rdfssubClassOf as u64,
             NodeDictionary::rdfsrange as u64,
             NodeDictionary::rdfsClass,
-        ]);
-        self.store.add_triple([
+            ],[
             NodeDictionary::rdfssubPropertyOf as u64,
             NodeDictionary::rdfsrange as u64,
             NodeDictionary::rdfProperty as u64,
-        ]);
-        self.store.add_triple([
+            ],[
             NodeDictionary::rdfsubject as u64,
             NodeDictionary::rdfsrange as u64,
             NodeDictionary::rdfsResource,
-        ]);
-        self.store.add_triple([
+            ],[
             NodeDictionary::rdfpredicate as u64,
             NodeDictionary::rdfsrange as u64,
             NodeDictionary::rdfsResource,
-        ]);
-        self.store.add_triple([
+            ],[
             NodeDictionary::rdfobject as u64,
             NodeDictionary::rdfsrange as u64,
             NodeDictionary::rdfsResource,
-        ]);
-        self.store.add_triple([
+            ],[
             NodeDictionary::rdfsMember as u64,
             NodeDictionary::rdfsrange as u64,
             NodeDictionary::rdfsResource,
-        ]);
-        self.store.add_triple([
+            ],[
             NodeDictionary::rdffirst as u64,
             NodeDictionary::rdfsrange as u64,
             NodeDictionary::rdfsResource,
-        ]);
-        self.store.add_triple([
+            ],[
             NodeDictionary::rdfrest as u64,
             NodeDictionary::rdfsrange as u64,
             NodeDictionary::rdfList,
-        ]);
-        self.store.add_triple([
+            ],[
             NodeDictionary::rdfsSeeAlso as u64,
             NodeDictionary::rdfsrange as u64,
             NodeDictionary::rdfsResource,
-        ]);
-        self.store.add_triple([
+            ],[
             NodeDictionary::rdfsisDefinedBy as u64,
             NodeDictionary::rdfsrange as u64,
             NodeDictionary::rdfsResource,
-        ]);
-        self.store.add_triple([
+            ],[
             NodeDictionary::rdfsComment as u64,
             NodeDictionary::rdfsrange as u64,
             NodeDictionary::rdfsLiteral,
-        ]);
-        self.store.add_triple([
+            ],[
             NodeDictionary::rdfsLabel as u64,
             NodeDictionary::rdfsrange as u64,
             NodeDictionary::rdfsLiteral,
-        ]);
-        self.store.add_triple([
+            ],[
             NodeDictionary::rdfValue as u64,
             NodeDictionary::rdfsrange as u64,
             NodeDictionary::rdfsResource,
-        ]);
-        // MISC
-        self.store.add_triple([
+            ],[
+            // MISC
             NodeDictionary::rdfAlt,
             NodeDictionary::rdfssubClassOf as u64,
             NodeDictionary::rdfsContainer,
-        ]);
-        self.store.add_triple([
+            ],[
             NodeDictionary::rdfBag,
             NodeDictionary::rdfssubClassOf as u64,
             NodeDictionary::rdfsContainer,
-        ]);
-        self.store.add_triple([
+            ],[
             NodeDictionary::rdfSeq,
             NodeDictionary::rdfssubClassOf as u64,
             NodeDictionary::rdfsContainer,
-        ]);
-        self.store.add_triple([
+            ],[
             NodeDictionary::rdfsContainerMembershipProperty as u64,
             NodeDictionary::rdfssubClassOf as u64,
             NodeDictionary::rdfProperty as u64,
-        ]);
-        self.store.add_triple([
+            ],[
             NodeDictionary::rdf_1 as u64,
             NodeDictionary::rdftype as u64,
             NodeDictionary::rdfsContainerMembershipProperty as u64,
-        ]);
-        self.store.add_triple([
+            ],[
             NodeDictionary::rdf_1 as u64,
             NodeDictionary::rdfsdomain as u64,
             NodeDictionary::rdfsResource,
-        ]);
-        self.store.add_triple([
+            ],[
             NodeDictionary::rdf_1 as u64,
             NodeDictionary::rdfsrange as u64,
             NodeDictionary::rdfsResource,
-        ]);
-        self.store.add_triple([
+            ],[
             NodeDictionary::rdfsisDefinedBy as u64,
             NodeDictionary::rdfssubPropertyOf as u64,
             NodeDictionary::rdfsSeeAlso as u64,
-        ]);
-        self.store.add_triple([
+            ],[
             NodeDictionary::rdfXMLLiteral,
             NodeDictionary::rdftype as u64,
             NodeDictionary::rdfsDatatype,
-        ]);
-        self.store.add_triple([
+            ],[
             NodeDictionary::rdfXMLLiteral,
             NodeDictionary::rdfssubClassOf as u64,
             NodeDictionary::rdfsLiteral,
-        ]);
-        self.store.add_triple([
+            ],[
             NodeDictionary::rdfsDatatype,
             NodeDictionary::rdfssubClassOf as u64,
             NodeDictionary::rdfsClass,
-        ]);
-        self.store.add_triple([
+            ],[
             NodeDictionary::xsdnonNegativeInteger,
             NodeDictionary::rdftype as u64,
             NodeDictionary::rdfsDatatype,
-        ]);
-        self.store.add_triple([
+            ],[
             NodeDictionary::xsdstring,
             NodeDictionary::rdftype as u64,
             NodeDictionary::rdfsDatatype,
-        ]);
-        self.store.add_triple([
+            ],[
             NodeDictionary::rdftype as u64,
             NodeDictionary::rdfssubPropertyOf as u64,
             NodeDictionary::rdftype as u64,
-        ]);
-        self.store.add_triple([
+            ],[
             NodeDictionary::rdfsdomain as u64,
             NodeDictionary::rdfssubPropertyOf as u64,
             NodeDictionary::rdfsdomain as u64,
-        ]);
-        self.store.add_triple([
+            ],[
             NodeDictionary::rdfsrange as u64,
             NodeDictionary::rdfssubPropertyOf as u64,
             NodeDictionary::rdfsrange as u64,
-        ]);
-        self.store.add_triple([
+            ],[
             NodeDictionary::rdfssubPropertyOf as u64,
             NodeDictionary::rdfssubPropertyOf as u64,
             NodeDictionary::rdfssubPropertyOf as u64,
-        ]);
-        self.store.add_triple([
+            ],[
             NodeDictionary::rdfssubClassOf as u64,
             NodeDictionary::rdfssubPropertyOf as u64,
             NodeDictionary::rdfssubClassOf as u64,
-        ]);
-        self.store.sort();
+        ]];
+        self.merge_store(TripleStore::new(axiomatic_triples.iter()));
     }
 }
 

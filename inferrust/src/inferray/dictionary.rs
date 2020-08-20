@@ -1,3 +1,6 @@
+//! A `NodeDictionary` maintains a correspondance between
+//! terms and indexes.
+
 #![allow(non_snake_case)]
 #![allow(non_upper_case_globals)]
 use sophia::ns::*;
@@ -9,6 +12,7 @@ use sophia::triple::Triple;
 use std::borrow::Borrow;
 use std::collections::HashMap;
 
+/// See [module documentation](./index.html)
 pub(crate) struct NodeDictionary {
     factory: ArcTermFactory,
     resources: Vec<ArcTerm>,
@@ -92,6 +96,7 @@ impl NodeDictionary {
     const res_start: u64 = Self::START_INDEX as u64 + 15;
     const prop_start: u32 = Self::START_INDEX - 55;
 
+    /// Build new didt.
     pub fn new() -> Self {
         let mut me = Self {
             factory: ArcTermFactory::new(),
@@ -104,11 +109,11 @@ impl NodeDictionary {
         me
     }
 
-    #[inline]
-    pub(super) fn remapped(&self) -> &[[u64; 2]] {
-        &self.remapped[..]
-    }
-
+    /// Convert a term triple into an index-triple,
+    /// creating entries in this dict if necessary.
+    ///
+    /// This may lead to resources (nodes) being requalified as properties,
+    /// requiring some remaping of existing data.
     pub(super) fn encode_triple<T>(&mut self, t: &T) -> [u64; 3]
     where
         T: Triple,
@@ -141,6 +146,67 @@ impl NodeDictionary {
             o = self.add(to);
         }
         [s, p as u64, o]
+    }
+
+    /// Return the term associated to a given index.alloc
+    ///
+    /// # Panic
+    /// This method will panic if the index is not a valid index.
+    pub(super) fn get_term(&self, index: u64) -> &ArcTerm {
+        if index < Self::START_INDEX as u64 {
+            &self.properties[Self::START_INDEX as usize - index as usize - 1]
+        } else {
+            &self.resources[index as usize - Self::START_INDEX as usize - 1]
+        }
+    }
+
+    /// Return the index of a given term, if any.
+    #[inline]
+    pub(super) fn get_index<T>(&self, t: &T) -> Option<u64>
+    where
+        T: TTerm + ?Sized,
+    {
+        self.indexes.get(&RefTerm::from(t)).cloned()
+    }
+
+
+    /// Update subject and object in t according to self.remapped
+    pub(super) fn remap_triple(&self, t: &mut [u64; 3]) {
+        let mut c = 0;
+        for [old, new] in &self.remapped {
+            if t[0] == *old {
+                t[0] = *new;
+                c += 1;
+            }
+            if t[2] == *old {
+                t[2] = *new;
+                c += 1;
+            }
+            if c == 2 {
+                break;
+            }
+        }
+    }
+
+    /// Indicates whether a resource index was remapped to a property index.
+    pub fn was_remapped(&self, res: u64) -> bool {
+        self.remapped.iter().any(|[o, _]| *o == res)
+    }
+
+    /// Return the first available resource index
+    pub fn get_res_ctr(&self) -> u64 {
+        self.resources.len() as u64 + Self::START_INDEX as u64
+    }
+
+    /// Convert a property index to an offset usable with `TripleStore::chunks`
+    pub fn prop_idx_to_offset(prop_idx: u64) -> usize {
+        debug_assert!(prop_idx < Self::START_INDEX as u64);
+        Self::START_INDEX as usize - prop_idx as usize - 1
+    }
+
+    /// Convert an offset (usable with `TripleStore::chunks`) into a property index
+    pub fn offset_to_prop_idx(idx: usize) -> u64 {
+        Self::START_INDEX as u64 - idx as u64 - 1
     }
 
     fn add<T>(&mut self, term: &T) -> u64
@@ -205,38 +271,6 @@ impl NodeDictionary {
     {
         let idx = self.add_property(term);
         debug_assert_eq!(idx, id);
-    }
-
-    pub(super) fn get_term(&self, index: u64) -> &ArcTerm {
-        if index < Self::START_INDEX as u64 {
-            &self.properties[Self::START_INDEX as usize - index as usize - 1]
-        } else {
-            &self.resources[index as usize - Self::START_INDEX as usize - 1]
-        }
-    }
-
-    #[inline]
-    pub(super) fn get_index<T>(&self, t: &T) -> Option<u64>
-    where
-        T: TTerm + ?Sized,
-    {
-        self.indexes.get(&RefTerm::from(t)).cloned()
-    }
-
-    pub fn was_remapped(&self, res: u64) -> bool {
-        self.remapped.iter().any(|[o, _]| *o == res)
-    }
-
-    pub fn get_res_ctr(&self) -> u64 {
-        self.resources.len() as u64 + Self::START_INDEX as u64
-    }
-
-    pub fn prop_idx_to_offset(prop_idx: u64) -> usize {
-        Self::START_INDEX as usize - prop_idx as usize - 1
-    }
-
-    pub fn offset_to_prop_idx(idx: usize) -> u64 {
-        Self::START_INDEX as u64 - idx as u64 - 1
     }
 
     fn init_const(&mut self) {

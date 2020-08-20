@@ -42,13 +42,6 @@
 //! The Web Conference 2020: Developers Track, Taipei, TW.
 //! Available at: https://www2020devtrack.github.io/site/schedule.
 
-#[cfg(debug_assertion)]
-extern crate flame;
-#[cfg(debug_assertion)]
-#[macro_use]
-#[cfg(debug_assertion)]
-extern crate flamer;
-
 pub mod closure;
 pub mod inferray;
 pub mod rules;

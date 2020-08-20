@@ -9,9 +9,9 @@ pub(crate) fn PRP_FP(ts: &TripleStore) -> RuleResult {
     if pairs_mut == None {
         return output;
     }
-    let pairs: &Vec<[u64; 2]> = pairs_mut.unwrap().os(); // os copy
+    let pairs: &[[u64; 2]] = pairs_mut.unwrap().os();
     let expected_o = NodeDictionary::owlfunctionalProperty as u64;
-    for pair in &*pairs {
+    for pair in pairs {
         if pair[0] > expected_o {
             break;
         }
