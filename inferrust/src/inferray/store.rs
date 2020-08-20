@@ -25,7 +25,7 @@ use crate::rules::*;
 
 /// See [module documentation](./index.html).
 #[derive(Default, PartialEq, Debug, Clone)]
-pub struct TripleStore {
+pub(crate) struct TripleStore {
     /// each chunk represents triples with a given predicate
     chunks: Vec<Chunk>,
     /// total number of triples in all the chunks
@@ -33,6 +33,27 @@ pub struct TripleStore {
 }
 
 impl TripleStore {
+    pub fn new<'a, I, J>(tripless: I) -> Self
+    where
+        I: IntoIterator<Item=J>,
+        J: IntoIterator<Item=&'a [u64; 3]>
+    {
+        let mut proto_chunks = vec![];
+        for triples in tripless {
+            for triple in triples {
+                let [is, ip, io] = triple;
+                let op = NodeDictionary::prop_idx_to_offset(*ip);
+                proto_chunks.resize_with(op+1, Vec::new);
+                proto_chunks[op].push([*is, *io]);
+            }
+        }
+        let chunks: Vec<Chunk> = proto_chunks.into_iter()
+            .map(|v| v[..].into())
+            .collect();
+        let size = chunks.iter().map(|c| c.len()).sum();
+        Self { chunks, size }
+    }
+
     #[inline]
     pub fn chunks(&self) -> &Vec<Chunk> {
         &self.chunks
@@ -82,7 +103,7 @@ impl TripleStore {
         }
     }
 
-    pub fn size(&mut self) -> usize {
+    pub fn size(&self) -> usize {
         self.size
     }
 

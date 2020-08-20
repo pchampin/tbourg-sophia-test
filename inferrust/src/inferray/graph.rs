@@ -270,35 +270,49 @@ impl Graph for InfGraph {
 }
 
 impl InfGraph {
-    #[inline]
-    pub fn dict(&self) -> &NodeDictionary {
-        &self.dictionary
+
+    /// Create a new `InfGraph` from the given triple source,
+    /// to which the given inference regime (`profile`) is applied.
+    pub fn new<TS>(ts: TS, profile: &mut RuleProfile) -> Result<Self, TS::Error>
+    where
+        TS: TripleSource,
+    {
+        let mut this = InfGraph::new_unprocessed(ts)?;
+        this.process(profile);
+        Ok(this)
     }
 
     #[inline]
-    pub fn dict_mut(&mut self) -> &mut NodeDictionary {
-        &mut self.dictionary
-    }
-
-    #[inline]
-    pub fn store(&self) -> &TripleStore {
-        &self.store
-    }
-    #[inline]
-    pub fn store_mut(&mut self) -> &mut TripleStore {
-        &mut self.store
-    }
-    #[inline]
-    pub fn merge_store(&mut self, mut other: TripleStore) {
-        other.sort();
-        self.store.merge(other);
-        self.store.remap_res_to_prop(self.dictionary.remapped());
-    }
-
-    pub fn size(&mut self) -> usize {
+    pub fn size(&self) -> usize {
         self.store.size()
     }
 
+    /// **for testing purposes only**
+    /// Create a new `InfGraph` from the given triple source,
+    /// but *do not* finalize the processing.
+    /// This graph is **unsuable**
+    /// until the `process` method is called.
+    ///
+    /// This can be used in tests to measure the loading time.
+    pub fn new_unprocessed<TS>(mut ts: TS) -> Result<Self, TS::Error>
+    where
+        TS: TripleSource,
+    {
+        let mut dictionary = NodeDictionary::new();
+        let mut store = TripleStore::default();
+
+        ts.for_each_triple(|t| {
+            let rep = dictionary.encode_triple(&t);
+            store.add_triple(rep);
+        })?;
+        store.remap_res_to_prop(dictionary.remapped());
+        Ok(Self { dictionary, store })
+    }
+
+    /// **for testing purposes only**
+    /// Finalizes the processing of a graph created with `new_unprocessed`.
+    ///
+    /// This can be used in tests to measure the processing time.
     pub fn process(&mut self, profile: &mut RuleProfile) {
         self.store.sort();
         self.close(&mut profile.cl_profile);
@@ -308,12 +322,29 @@ impl InfGraph {
         }
         profile.rules.process(self);
         match &profile.after_rules {
-            Some(rule) => {
-                rule(self);
-                self.store.sort();
+            Some(func) => {
+                let outputs = TripleStore::new(&[func(self)]);
+                self.merge_store(outputs);
             }
             None => (),
         }
+    }
+
+    #[inline]
+    pub(crate) fn dict(&self) -> &NodeDictionary {
+        &self.dictionary
+    }
+
+    #[inline]
+    pub(crate) fn store(&self) -> &TripleStore {
+        &self.store
+    }
+
+    #[inline]
+    pub(crate) fn merge_store(&mut self, mut other: TripleStore) {
+        other.sort();
+        self.store.merge(other);
+        self.store.remap_res_to_prop(self.dictionary.remapped());
     }
 
     fn close(&mut self, profile: &mut ClosureProfile) {
@@ -675,20 +706,3 @@ impl InfGraph {
     }
 }
 
-impl<TS> From<TS> for InfGraph
-where
-    TS: TripleSource,
-{
-    fn from(mut ts: TS) -> Self {
-        let mut dictionary = NodeDictionary::new();
-        let mut store = TripleStore::default();
-        ts.for_each_triple(|t| {
-            let rep = dictionary.encode_triple(&t);
-
-            store.add_triple(rep);
-        })
-        .expect("Streaming error");
-        store.remap_res_to_prop(dictionary.remapped());
-        Self { dictionary, store }
-    }
-}

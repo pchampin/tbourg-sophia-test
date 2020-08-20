@@ -3,9 +3,9 @@ use crate::inferray::*;
 use rayon::prelude::*;
 
 /// Type aliases to unify all the rules of the reasoner
-pub type Rule = fn(&TripleStore) -> RuleResult;
+pub(crate) type Rule = fn(&TripleStore) -> RuleResult;
 /// Type aliases for the result of a rule (actually a vector)
-pub type RuleResult = Vec<[u64; 3]>;
+pub(crate) type RuleResult = Vec<[u64; 3]>;
 
 /// A set of Rule, which can be applied on a InfGraph
 pub trait RuleSet {

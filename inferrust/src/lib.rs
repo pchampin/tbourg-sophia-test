@@ -18,15 +18,18 @@
 //! @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 //! @prefix owl: <http://www.w3.org/2002/07/owl#> .
 //!
-//! :Bart rdf:type :human .
-//! :Lisa rdf:type :human .
-//! :human rdfs:subClassOf :mammal .
-//! :mammal rdfs:subClassOf :animal .
+//! :bart rdf:type :Boy .
+//! :lisa rdf:type :Girl .
+//! :Boy rdfs:subClassOf :Male .
+//! :Girl rdfs:subClassOf :Female .
+//! :Female rdfs:subClassOf :Person .
+//! :Male rdfs:subClassOf :Person .
 //! "#;
 //!
-//! let mut graph = InfGraph::from(sophia::parser::turtle::parse_str(rep));
-//!
-//! graph.process(&mut RuleProfile::RDFS());
+//! let mut graph = InfGraph::new(
+//!     sophia::parser::turtle::parse_str(rep),
+//!     &mut RuleProfile::RDFS(),
+//! );
 //! ```
 //!
 //! [Sophia parser]:https://docs.rs/sophia/0.6.1/sophia/parser/index.html

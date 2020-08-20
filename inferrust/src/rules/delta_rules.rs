@@ -35,7 +35,7 @@ fn apply_delta_rule(ts: &TripleStore, prop_idx: usize, invert: bool) -> RuleResu
     output
 }
 
-pub fn PRP_INV_1_2(ts: &TripleStore) -> RuleResult {
+pub(crate) fn PRP_INV_1_2(ts: &TripleStore) -> RuleResult {
     apply_delta_rule(
         ts,
         NodeDictionary::prop_idx_to_offset(NodeDictionary::owlinverseOf as u64),
@@ -43,7 +43,7 @@ pub fn PRP_INV_1_2(ts: &TripleStore) -> RuleResult {
     )
 }
 
-pub fn PRP_EQP_1_2(ts: &TripleStore) -> RuleResult {
+pub(crate) fn PRP_EQP_1_2(ts: &TripleStore) -> RuleResult {
     apply_delta_rule(
         ts,
         NodeDictionary::prop_idx_to_offset(NodeDictionary::owlequivalentProperty as u64),

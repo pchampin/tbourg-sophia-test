@@ -77,6 +77,6 @@ fn apply_same_as_rule(ts: &TripleStore) -> RuleResult {
     output
 }
 
-pub fn SAME_AS(ts: &TripleStore) -> RuleResult {
+pub(crate) fn SAME_AS(ts: &TripleStore) -> RuleResult {
     apply_same_as_rule(ts)
 }

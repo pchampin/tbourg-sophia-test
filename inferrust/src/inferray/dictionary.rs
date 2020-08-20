@@ -9,7 +9,7 @@ use sophia::triple::Triple;
 use std::borrow::Borrow;
 use std::collections::HashMap;
 
-pub struct NodeDictionary {
+pub(crate) struct NodeDictionary {
     factory: ArcTermFactory,
     resources: Vec<ArcTerm>,
     properties: Vec<ArcTerm>,

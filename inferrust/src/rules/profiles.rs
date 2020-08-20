@@ -14,7 +14,7 @@ pub struct RuleProfile {
     pub axiomatic_triples: bool,
     pub before_rules: StaticRuleSet,
     pub rules: FixPointRuleSet,
-    pub after_rules: Option<Box<dyn Fn(&mut InfGraph)>>,
+    pub after_rules: Option<Box<dyn Fn(&InfGraph) -> RuleResult>>,
     name: String,
 }
 

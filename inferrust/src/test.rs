@@ -26,8 +26,10 @@ fn test_infer(input: &str, expected: &str, mut profiles: Vec<RuleProfile>) -> Re
     let expected: Vec<[BoxTerm; 3]> = parse_ttl(&full_expected).collect_triples()?;
 
     for profile in &mut profiles {
-        let mut i_graph = InfGraph::from(sophia::parser::turtle::parse_str(&full_input));
-        i_graph.process(profile);
+        let i_graph = InfGraph::new(
+            sophia::parser::turtle::parse_str(&full_input),
+            profile,
+        )?;
         println!("=== {} triples inferred", i_graph.size() - exp_input.len());
 
         for [s, p, o] in &exp_input {

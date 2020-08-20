@@ -31,7 +31,7 @@ fn apply_gamma_rule(
     output
 }
 
-pub fn PRP_DOM(ts: &TripleStore) -> RuleResult {
+pub(crate) fn PRP_DOM(ts: &TripleStore) -> RuleResult {
     apply_gamma_rule(
         ts,
         NodeDictionary::prop_idx_to_offset(NodeDictionary::rdfsdomain as u64),
@@ -41,7 +41,7 @@ pub fn PRP_DOM(ts: &TripleStore) -> RuleResult {
     )
 }
 
-pub fn PRP_RNG(ts: &TripleStore) -> RuleResult {
+pub(crate) fn PRP_RNG(ts: &TripleStore) -> RuleResult {
     apply_gamma_rule(
         ts,
         NodeDictionary::prop_idx_to_offset(NodeDictionary::rdfsrange as u64),
@@ -51,7 +51,7 @@ pub fn PRP_RNG(ts: &TripleStore) -> RuleResult {
     )
 }
 
-pub fn PRP_SPO1(ts: &TripleStore) -> RuleResult {
+pub(crate) fn PRP_SPO1(ts: &TripleStore) -> RuleResult {
     apply_gamma_rule(
         ts,
         NodeDictionary::prop_idx_to_offset(NodeDictionary::rdfssubPropertyOf as u64),
@@ -61,7 +61,7 @@ pub fn PRP_SPO1(ts: &TripleStore) -> RuleResult {
     )
 }
 
-pub fn PRP_SYMP(ts: &TripleStore) -> RuleResult {
+pub(crate) fn PRP_SYMP(ts: &TripleStore) -> RuleResult {
     let mut output = vec![];
     let expected_ip = NodeDictionary::prop_idx_to_offset(NodeDictionary::rdftype as u64);
     let expected_io = NodeDictionary::owlsymmetricProperty as u64;
@@ -88,7 +88,7 @@ pub fn PRP_SYMP(ts: &TripleStore) -> RuleResult {
     output
 }
 
-pub fn EQ_TRANS(ts: &TripleStore) -> RuleResult {
+pub(crate) fn EQ_TRANS(ts: &TripleStore) -> RuleResult {
     let mut output = vec![];
     let pairs = ts.chunks().get(NodeDictionary::prop_idx_to_offset(
         NodeDictionary::owlsameAs as u64,

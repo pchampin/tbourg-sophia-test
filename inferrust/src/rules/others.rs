@@ -1,7 +1,7 @@
 use crate::inferray::*;
 use crate::rules::*;
 
-pub fn PRP_FP(ts: &TripleStore) -> RuleResult {
+pub(crate) fn PRP_FP(ts: &TripleStore) -> RuleResult {
     let mut output = vec![];
     let pairs_mut = ts.chunks().get(NodeDictionary::prop_idx_to_offset(
         NodeDictionary::rdftype as u64,
@@ -44,7 +44,7 @@ pub fn PRP_FP(ts: &TripleStore) -> RuleResult {
     output
 }
 
-pub fn PRP_IFP(ts: &TripleStore) -> RuleResult {
+pub(crate) fn PRP_IFP(ts: &TripleStore) -> RuleResult {
     let mut output = vec![];
     let pairs = ts.chunks().get(NodeDictionary::prop_idx_to_offset(
         NodeDictionary::rdftype as u64,
@@ -87,7 +87,7 @@ pub fn PRP_IFP(ts: &TripleStore) -> RuleResult {
     output
 }
 
-pub fn PRP_TRP(ts: &TripleStore) -> RuleResult {
+pub(crate) fn PRP_TRP(ts: &TripleStore) -> RuleResult {
     let mut output = vec![];
     let pairs = ts.chunks().get(NodeDictionary::prop_idx_to_offset(
         NodeDictionary::rdftype as u64,
@@ -145,13 +145,14 @@ pub fn PRP_TRP(ts: &TripleStore) -> RuleResult {
     output
 }
 
-pub fn finalize(graph: &mut InfGraph) {
-    let type_index = NodeDictionary::prop_idx_to_offset(NodeDictionary::rdftype as u64);
-    graph.store_mut().ensure_prop(type_index);
-    let res = NodeDictionary::rdfsResource;
-    ((NodeDictionary::START_INDEX as u64 + 1)..=graph.dict().get_res_ctr()).for_each(|e| {
+pub fn finalize(graph: &InfGraph) -> RuleResult {
+    ((NodeDictionary::START_INDEX as u64 + 1)..=graph.dict().get_res_ctr())
+    .filter_map(|e|
         if !graph.dict().was_remapped(e) {
-            graph.store_mut().add_triple_raw(e, type_index, res);
+            Some([e, NodeDictionary::rdftype as u64, NodeDictionary::rdfsResource])
+        } else {
+            None
         }
-    });
+    )
+    .collect()
 }

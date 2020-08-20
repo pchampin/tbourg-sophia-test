@@ -14,7 +14,7 @@ use crate::utils::{bucket_sort_pairs, merge_sort};
 use once_cell::sync::OnceCell;
 
 #[derive(PartialEq, Debug, Clone)]
-pub struct Chunk {
+pub(crate) struct Chunk {
     /// subject-object list
     so: Vec<[u64; 2]>,
     /// object-subject list (built lazily)
@@ -107,6 +107,14 @@ impl Chunk {
     pub(super) fn add_so(&mut self, so: [u64; 2]) {
         self.so_dirty = true;
         self.so.push(so);
+    }
+}
+
+impl From<&[[u64; 2]]> for Chunk {
+    fn from(other: &[[u64; 2]]) -> Chunk {
+        let mut ret = Chunk::empty();
+        ret.add_pairs(other);
+        ret
     }
 }
 
