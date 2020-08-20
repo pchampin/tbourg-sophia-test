@@ -27,15 +27,15 @@ use crate::rules::*;
 #[derive(Default, PartialEq, Debug, Clone)]
 pub struct TripleStore {
     /// each chunk represents triples with a given predicate
-    elem: Vec<Chunk>,
+    chunks: Vec<Chunk>,
     /// total number of triples in all the chunks
     size: usize,
 }
 
 impl TripleStore {
     #[inline]
-    pub fn elem(&self) -> &Vec<Chunk> {
-        &self.elem
+    pub fn chunks(&self) -> &Vec<Chunk> {
+        &self.chunks
     }
 
     pub(super) fn add_triple(&mut self, triple: [u64; 3]) {
@@ -53,31 +53,31 @@ impl TripleStore {
         }
     }
 
-    /// Ensure that `self.elem` has an array at index `ip`
+    /// Ensure that `self.chunks` has an array at index `ip`
     #[inline]
     pub fn ensure_prop(&mut self, ip: usize) {
-        if ip >= self.elem.len() {
-            self.elem.resize_with(ip + 1, Chunk::empty);
+        if ip >= self.chunks.len() {
+            self.chunks.resize_with(ip + 1, Chunk::empty);
         }
     }
 
     /// # Pre-condition
-    /// `self.elem` must have an element at index `ip`
+    /// `self.chunks` must have an element at index `ip`
     #[inline]
     pub fn add_triple_raw(&mut self, is: u64, ip: usize, io: u64) {
         self.size += 1;
-        self.elem[ip].add_so([is, io]);
+        self.chunks[ip].add_so([is, io]);
     }
 
     pub(super) fn sort(&mut self) {
-        if self.elem.is_empty() {
+        if self.chunks.is_empty() {
             return;
         }
-        self.size = self.elem.par_iter_mut().map(|chunk| chunk.so_sort()).sum();
+        self.size = self.chunks.par_iter_mut().map(|chunk| chunk.so_sort()).sum();
     }
 
     pub(super) fn remap_res_to_prop(&mut self, map: &[[u64; 2]]) {
-        for chunk in &mut self.elem {
+        for chunk in &mut self.chunks {
             chunk.remap_res_to_prop(map);
         }
     }
@@ -90,25 +90,25 @@ impl TripleStore {
         if other.size == 0 {
             return;
         }
-        let s_len = self.elem.len();
-        let o_len = other.elem.len();
+        let s_len = self.chunks.len();
+        let o_len = other.chunks.len();
         self.size = 0;
-        let mut other_chunks = other.elem.drain(..);
+        let mut other_chunks = other.chunks.drain(..);
     
         for i in 0..s_len.min(o_len) {
             let o_chunk = other_chunks.next().unwrap();
-            self.elem[i].merge(o_chunk);
-            self.size += self.elem[i].len();
+            self.chunks[i].merge(o_chunk);
+            self.size += self.chunks[i].len();
         }
         if s_len > o_len {
-            for chunk in &self.elem[o_len..] {
+            for chunk in &self.chunks[o_len..] {
                 self.size += chunk.so().len();
             }
         } else if s_len < o_len {
-            self.elem.reserve(o_len-s_len);
+            self.chunks.reserve(o_len-s_len);
             for chunk in other_chunks {
                 self.size += chunk.len();
-                self.elem.push(chunk);
+                self.chunks.push(chunk);
             }
         }
     }

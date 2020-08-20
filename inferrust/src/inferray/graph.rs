@@ -24,7 +24,7 @@ impl Graph for InfGraph {
     fn triples(&self) -> GTripleSource<Self> {
         Box::from(
             self.store
-                .elem()
+                .chunks()
                 .iter()
                 .enumerate()
                 .filter(|(_, chunk)| !chunk.so().is_empty())
@@ -52,7 +52,7 @@ impl Graph for InfGraph {
             let s = self.dictionary.get_term(si);
             Box::from(
                 self.store
-                    .elem()
+                    .chunks()
                     .iter()
                     .enumerate()
                     .filter(|(_, chunk)| !chunk.so().is_empty())
@@ -85,7 +85,7 @@ impl Graph for InfGraph {
     {
         if let Some(ip) = self.dictionary.get_index(p) {
             let idx = NodeDictionary::prop_idx_to_offset(ip);
-            let chunk = &self.store.elem()[idx];
+            let chunk = &self.store.chunks()[idx];
             if !chunk.so().is_empty() {
                 let p = self.dictionary.get_term(ip);
                 Box::from(chunk.so().iter().map(move |[si, oi]| {
@@ -111,7 +111,7 @@ impl Graph for InfGraph {
             let o = self.dictionary.get_term(oi);
             Box::from(
                 self.store
-                    .elem()
+                    .chunks()
                     .iter()
                     .enumerate()
                     .filter(|(_, chunk)| !chunk.os().is_empty())
@@ -145,7 +145,7 @@ impl Graph for InfGraph {
     {
         if let (Some(si), Some(pi)) = (self.dictionary.get_index(s), self.dictionary.get_index(p)) {
             let idx = NodeDictionary::prop_idx_to_offset(pi);
-            let chunk = &self.store.elem()[idx];
+            let chunk = &self.store.chunks()[idx];
             if !chunk.so().is_empty() {
                 let s = self.dictionary.get_term(si);
                 let p = self.dictionary.get_term(pi);
@@ -178,7 +178,7 @@ impl Graph for InfGraph {
         if let (Some(si), Some(oi)) = (self.dictionary.get_index(s), self.dictionary.get_index(o)) {
             let s = self.dictionary.get_term(si);
             let o = self.dictionary.get_term(oi);
-            Box::from(self.store.elem().iter().enumerate().filter_map(
+            Box::from(self.store.chunks().iter().enumerate().filter_map(
                 move |(pi, chunk)| {
                     if chunk.so().is_empty() {
                         None
@@ -208,7 +208,7 @@ impl Graph for InfGraph {
     {
         if let (Some(pi), Some(oi)) = (self.dictionary.get_index(p), self.dictionary.get_index(o)) {
             let idx = NodeDictionary::prop_idx_to_offset(pi);
-            let chunk = &self.store.elem()[idx];
+            let chunk = &self.store.chunks()[idx];
             if !chunk.os().is_empty() {
                 let p = self.dictionary.get_term(pi);
                 let o = self.dictionary.get_term(oi);
@@ -250,7 +250,7 @@ impl Graph for InfGraph {
             self.dictionary.get_index(o),
         ) {
             let idx = NodeDictionary::prop_idx_to_offset(pi);
-            let chunk = &self.store.elem()[idx];
+            let chunk = &self.store.chunks()[idx];
             if chunk.so().is_empty() {
                 Box::from(std::iter::empty())
             } else {
@@ -335,7 +335,7 @@ impl InfGraph {
 
     fn close_on(&mut self, index: u32) {
         let offset = NodeDictionary::prop_idx_to_offset(index as u64);
-        let pairs = self.store.elem().get(offset);
+        let pairs = self.store.chunks().get(offset);
         if pairs == None {
             return;
         }
@@ -356,7 +356,7 @@ impl InfGraph {
     fn get_tr_idx(&mut self) -> Vec<u32> {
         if let Some(pairs) = self
             .store
-            .elem()
+            .chunks()
             .get(NodeDictionary::prop_idx_to_offset(
                 NodeDictionary::rdftype as u64,
             ))

@@ -17,7 +17,7 @@ use crate::rules::*;
 
 fn apply_beta_rule(ts: &TripleStore, rule_p: usize, infer_p: usize) -> RuleResult {
     let mut output = vec![];
-    let pairs = ts.elem().get(rule_p);
+    let pairs = ts.chunks().get(rule_p);
     if pairs == None {
         return output;
     }
@@ -54,7 +54,7 @@ fn apply_beta_rule(ts: &TripleStore, rule_p: usize, infer_p: usize) -> RuleResul
 
 fn apply_inverse_beta_rule(ts: &TripleStore, rule_p: usize, infer_p: usize) -> RuleResult {
     let mut output = vec![];
-    let pairs = ts.elem().get(rule_p);
+    let pairs = ts.chunks().get(rule_p);
     if pairs == None {
         return output;
     }

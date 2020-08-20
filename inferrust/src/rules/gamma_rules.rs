@@ -9,13 +9,13 @@ fn apply_gamma_rule(
     raw_idx: bool,
 ) -> RuleResult {
     let mut output = vec![];
-    let pairs1 = ts.elem().get(head_prop);
+    let pairs1 = ts.chunks().get(head_prop);
     if pairs1 == None {
         return output;
     }
     let pairs1 = pairs1.unwrap().so();
     for pair1 in pairs1 {
-        let pairs2 = ts.elem().get(NodeDictionary::prop_idx_to_offset(pair1[0]));
+        let pairs2 = ts.chunks().get(NodeDictionary::prop_idx_to_offset(pair1[0]));
         if pairs2 == None {
             break;
         }
@@ -65,14 +65,14 @@ pub fn PRP_SYMP(ts: &TripleStore) -> RuleResult {
     let mut output = vec![];
     let expected_ip = NodeDictionary::prop_idx_to_offset(NodeDictionary::rdftype as u64);
     let expected_io = NodeDictionary::owlsymmetricProperty as u64;
-    let pairs1 = ts.elem().get(expected_ip);
+    let pairs1 = ts.chunks().get(expected_ip);
     if pairs1 == None {
         return output;
     }
     let pairs1 = pairs1.unwrap().os(); // os sorted copy
     for pair1 in &*pairs1 {
         if pair1[0] == expected_io {
-            let pairs2 = ts.elem().get(NodeDictionary::prop_idx_to_offset(pair1[1]));
+            let pairs2 = ts.chunks().get(NodeDictionary::prop_idx_to_offset(pair1[1]));
             if pairs2 == None {
                 break;
             }
@@ -90,7 +90,7 @@ pub fn PRP_SYMP(ts: &TripleStore) -> RuleResult {
 
 pub fn EQ_TRANS(ts: &TripleStore) -> RuleResult {
     let mut output = vec![];
-    let pairs = ts.elem().get(NodeDictionary::prop_idx_to_offset(
+    let pairs = ts.chunks().get(NodeDictionary::prop_idx_to_offset(
         NodeDictionary::owlsameAs as u64,
     ));
     if pairs == None {

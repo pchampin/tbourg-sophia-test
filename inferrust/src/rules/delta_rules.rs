@@ -4,11 +4,11 @@ use crate::rules::*;
 
 fn apply_delta_rule(ts: &TripleStore, prop_idx: usize, invert: bool) -> RuleResult {
     let mut output = vec![];
-    if let Some(pairs) = ts.elem().get(prop_idx) {
+    if let Some(pairs) = ts.chunks().get(prop_idx) {
         for pair in pairs.so() {
             if pair[0] != pair[1] {
                 let prop_idx = NodeDictionary::prop_idx_to_offset(pair[0]);
-                if let Some(usable_pairs) = ts.elem().get(prop_idx) {
+                if let Some(usable_pairs) = ts.chunks().get(prop_idx) {
                     let usable_pairs = if invert {
                         usable_pairs.os()
                     } else {
@@ -19,7 +19,7 @@ fn apply_delta_rule(ts: &TripleStore, prop_idx: usize, invert: bool) -> RuleResu
                     }
                 }
                 let prop_idx = NodeDictionary::prop_idx_to_offset(pair[1]);
-                if let Some(usable_pairs) = ts.elem().get(prop_idx) {
+                if let Some(usable_pairs) = ts.chunks().get(prop_idx) {
                     let usable_pairs = if invert {
                         usable_pairs.os()
                     } else {

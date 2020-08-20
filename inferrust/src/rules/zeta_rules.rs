@@ -9,7 +9,7 @@ fn apply_zeta_rule(
     object_is_subject: bool,
 ) -> RuleResult {
     let mut output = vec![];
-    let pairs1 = ts.elem().get(NodeDictionary::prop_idx_to_offset(
+    let pairs1 = ts.chunks().get(NodeDictionary::prop_idx_to_offset(
         NodeDictionary::rdftype as u64,
     ));
     if pairs1 == None {
@@ -69,7 +69,7 @@ pub fn RDFS13(ts: &TripleStore) -> RuleResult {
 
 pub fn SCM_DP_OP(ts: &TripleStore) -> RuleResult {
     let mut output = vec![];
-    let pairs1 = ts.elem().get(NodeDictionary::prop_idx_to_offset(
+    let pairs1 = ts.chunks().get(NodeDictionary::prop_idx_to_offset(
         NodeDictionary::rdftype as u64,
     ));
     if pairs1 == None {
@@ -104,7 +104,7 @@ pub fn SCM_DP_OP(ts: &TripleStore) -> RuleResult {
 
 pub fn SCM_CLS(ts: &TripleStore) -> RuleResult {
     let mut output = vec![];
-    let pairs1 = ts.elem().get(NodeDictionary::prop_idx_to_offset(
+    let pairs1 = ts.chunks().get(NodeDictionary::prop_idx_to_offset(
         NodeDictionary::rdftype as u64,
     ));
     if pairs1 == None {
@@ -144,7 +144,7 @@ pub fn SCM_CLS(ts: &TripleStore) -> RuleResult {
 pub fn RDFS4(ts: &TripleStore) -> RuleResult {
     let mut output = vec![];
     let mut resources_idx = Vec::new();
-    let pairs1 = ts.elem().get(NodeDictionary::prop_idx_to_offset(
+    let pairs1 = ts.chunks().get(NodeDictionary::prop_idx_to_offset(
         NodeDictionary::rdftype as u64,
     ));
     if pairs1 == None {
@@ -163,7 +163,7 @@ pub fn RDFS4(ts: &TripleStore) -> RuleResult {
             resources_idx.push(pair1[1])
         }
     }
-    for pairs2 in ts.elem() {
+    for pairs2 in ts.chunks() {
         for pair2 in pairs2.so() {
             if resources_idx.contains(&pair2[1]) {
                 output.push([pair2[0], NodeDictionary::rdftype as u64, object]);

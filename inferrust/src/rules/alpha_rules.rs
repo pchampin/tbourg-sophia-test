@@ -37,8 +37,8 @@ fn apply_alpha_rule(
         }
     }
     let mut output = vec![];
-    let property_1_pairs = ts.elem().get(id_1 as usize);
-    let property_2_pairs = ts.elem().get(id_2 as usize);
+    let property_1_pairs = ts.chunks().get(id_1 as usize);
+    let property_2_pairs = ts.chunks().get(id_2 as usize);
     if property_1_pairs == None || property_2_pairs == None {
         return output;
     }

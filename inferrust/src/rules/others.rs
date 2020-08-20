@@ -3,7 +3,7 @@ use crate::rules::*;
 
 pub fn PRP_FP(ts: &TripleStore) -> RuleResult {
     let mut output = vec![];
-    let pairs_mut = ts.elem().get(NodeDictionary::prop_idx_to_offset(
+    let pairs_mut = ts.chunks().get(NodeDictionary::prop_idx_to_offset(
         NodeDictionary::rdftype as u64,
     ));
     if pairs_mut == None {
@@ -18,7 +18,7 @@ pub fn PRP_FP(ts: &TripleStore) -> RuleResult {
         if pair[0] == expected_o {
             let prop = pair[1];
             let raw_prop = NodeDictionary::prop_idx_to_offset(prop);
-            let pairs1 = ts.elem().get(raw_prop);
+            let pairs1 = ts.chunks().get(raw_prop);
             if pairs1 == None {
                 break;
             }
@@ -46,7 +46,7 @@ pub fn PRP_FP(ts: &TripleStore) -> RuleResult {
 
 pub fn PRP_IFP(ts: &TripleStore) -> RuleResult {
     let mut output = vec![];
-    let pairs = ts.elem().get(NodeDictionary::prop_idx_to_offset(
+    let pairs = ts.chunks().get(NodeDictionary::prop_idx_to_offset(
         NodeDictionary::rdftype as u64,
     ));
     if pairs == None {
@@ -61,7 +61,7 @@ pub fn PRP_IFP(ts: &TripleStore) -> RuleResult {
         if pair[0] == expected_o {
             let prop = pair[1];
             let raw_prop = NodeDictionary::prop_idx_to_offset(prop);
-            let pairs1 = ts.elem().get(raw_prop);
+            let pairs1 = ts.chunks().get(raw_prop);
             if pairs1 == None {
                 break;
             }
@@ -89,7 +89,7 @@ pub fn PRP_IFP(ts: &TripleStore) -> RuleResult {
 
 pub fn PRP_TRP(ts: &TripleStore) -> RuleResult {
     let mut output = vec![];
-    let pairs = ts.elem().get(NodeDictionary::prop_idx_to_offset(
+    let pairs = ts.chunks().get(NodeDictionary::prop_idx_to_offset(
         NodeDictionary::rdftype as u64,
     ));
     if pairs == None {
@@ -121,7 +121,7 @@ pub fn PRP_TRP(ts: &TripleStore) -> RuleResult {
             && prop != NodeDictionary::rdfssubPropertyOf as u64
             && prop != NodeDictionary::owlsameAs as u64
         {
-            let pairs = ts.elem().get(NodeDictionary::prop_idx_to_offset(prop));
+            let pairs = ts.chunks().get(NodeDictionary::prop_idx_to_offset(prop));
             if pairs == None {
                 break;
             }
