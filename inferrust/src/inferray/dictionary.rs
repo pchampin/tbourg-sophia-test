@@ -3,11 +3,11 @@
 
 #![allow(non_snake_case)]
 #![allow(non_upper_case_globals)]
-use sophia::ns::*;
-use sophia::term::factory::{ArcTermFactory, TermFactory};
-use sophia::term::TTerm;
-use sophia::term::{ArcTerm, RefTerm, StaticTerm, Term, TermData};
-use sophia::triple::Triple;
+use sophia_api::ns::*;
+use sophia_api::term::TTerm;
+use sophia_api::triple::Triple;
+use sophia_term::{ArcTerm, RefTerm, StaticTerm, Term, TermData};
+use sophia_term::factory::{ArcTermFactory, TermFactory};
 
 use std::borrow::Borrow;
 use std::collections::HashMap;
@@ -315,7 +315,7 @@ impl NodeDictionary {
         self.add_property_with(&rdf::value, Self::rdfValue);
         // TODO: add rdf1 to sophia
         self.add_property_with(
-            &sophia::ns::Namespace::new("http://www.w3.org/1999/02/22-rdf-syntax-ns#")
+            &sophia_api::ns::Namespace::new("http://www.w3.org/1999/02/22-rdf-syntax-ns#")
                 .unwrap()
                 .get("_1")
                 .unwrap(),

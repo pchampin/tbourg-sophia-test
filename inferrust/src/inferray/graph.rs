@@ -1,10 +1,11 @@
 //! Provides type `InfGraph` (other utility types).
 
-use sophia::graph::GTripleSource;
-use sophia::graph::Graph;
-use sophia::term::{ArcTerm, TTerm};
-use sophia::triple::stream::TripleSource;
-use sophia::triple::streaming_mode::{ByTermRefs, StreamedTriple};
+use sophia_api::graph::GTripleSource;
+use sophia_api::graph::Graph;
+use sophia_api::term::TTerm;
+use sophia_api::triple::stream::TripleSource;
+use sophia_api::triple::streaming_mode::{ByTermRefs, StreamedTriple};
+use sophia_term::ArcTerm;
 
 use std::convert::Infallible;
 
@@ -13,7 +14,7 @@ use crate::inferray::TripleStore;
 use crate::rules::*;
 use crate::utils::*;
 
-/// Implementation of `sophia::graph::Graph` that supports inferences.
+/// Implementation of `sophia_api::graph::Graph` that supports inferences.
 pub struct InfGraph {
     dictionary: NodeDictionary,
     store: TripleStore,

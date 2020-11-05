@@ -1,10 +1,10 @@
 use crate::inferray::*;
 use crate::rules::*;
 
-use sophia::graph::Graph;
 use sophia::parser::turtle::parse_str as parse_ttl;
-use sophia::term::BoxTerm;
-use sophia::triple::stream::TripleSource;
+use sophia_api::graph::Graph;
+use sophia_api::triple::stream::TripleSource;
+use sophia_term::BoxTerm;
 use std::error::Error;
 
 const PREFIXES: &str = r#"@prefix : <http://example.org/> .
@@ -27,7 +27,7 @@ fn test_infer(input: &str, expected: &str, mut profiles: Vec<RuleProfile>) -> Re
 
     for profile in &mut profiles {
         let i_graph = InfGraph::new(
-            sophia::parser::turtle::parse_str(&full_input),
+            parse_ttl(&full_input),
             profile,
         )?;
         println!("=== {} triples inferred", i_graph.size() - exp_input.len());

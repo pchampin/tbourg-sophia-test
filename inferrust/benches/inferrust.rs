@@ -14,7 +14,7 @@ pub fn uobm_total(c: &mut Criterion) {
     c.bench_function("uobm_total", |b| {
         b.iter(|| {
             let graph = InfGraph::new(
-                sophia::parser::nt::parse_str(&data),
+                sophia_api::parser::nt::parse_str(&data),
                 &mut RuleProfile::RDFSPlus()
             ).expect("error during parsing");
             assert!(graph.size() > 711);
@@ -27,7 +27,7 @@ pub fn uobm_load(c: &mut Criterion) {
     c.bench_function("uobm_load", |b| {
         b.iter(|| {
             let graph = InfGraph::new_unprocessed(
-                sophia::parser::nt::parse_str(&data),
+                sophia_api::parser::nt::parse_str(&data),
             ).expect("error during parsing");
             assert_eq!(graph.size(), 711);
         })
