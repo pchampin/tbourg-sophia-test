@@ -275,7 +275,7 @@ impl Graph for InfGraph {
 impl InfGraph {
     /// Create a new `InfGraph` from the given triple source,
     /// to which the given inference regime (`profile`) is applied.
-    pub fn new<TS>(ts: TS, profile: &mut RuleProfile) -> Result<Self, TS::Error>
+    pub fn new<TS>(ts: TS, profile: &RuleProfile) -> Result<Self, TS::Error>
     where
         TS: TripleSource,
     {
@@ -290,7 +290,7 @@ impl InfGraph {
     where
         TS: TripleSource,
     {
-        Self::new(ts, &mut RuleProfile::RDFS())
+        Self::new(ts, &RuleProfile::RDFS())
     }
 
     /// Create a new `InfGraph` from the given triple source,
@@ -299,7 +299,7 @@ impl InfGraph {
     where
         TS: TripleSource,
     {
-        Self::new(ts, &mut RuleProfile::RhoDF())
+        Self::new(ts, &RuleProfile::RhoDF())
     }
 
     /// Create a new `InfGraph` from the given triple source,
@@ -308,7 +308,7 @@ impl InfGraph {
     where
         TS: TripleSource,
     {
-        Self::new(ts, &mut RuleProfile::RDFSPlus())
+        Self::new(ts, &RuleProfile::RDFSPlus())
     }
 
     /// The total number of triples (explicit + inferred)
@@ -346,8 +346,8 @@ impl InfGraph {
     /// Finalizes the processing of a graph created with `new_unprocessed`.
     ///
     /// This is useful for benchmatking the processing time of inferences (without loading).
-    pub fn process(&mut self, profile: &mut RuleProfile) {
-        self.compute_transitive_closures(&mut profile.cl_profile);
+    pub fn process(&mut self, profile: &RuleProfile) {
+        self.compute_transitive_closures(&profile.cl_profile);
         profile.before_rules.process(self);
         if profile.axiomatic_triples {
             self.init_axiomatic_triples();
@@ -385,7 +385,7 @@ impl InfGraph {
         self.store.merge(other);
     }
 
-    fn compute_transitive_closures(&mut self, profile: &mut ClosureProfile) {
+    fn compute_transitive_closures(&mut self, profile: &ClosureProfile) {
         if profile.on_sco {
             self.store.transitive_closure(NodeDictionary::rdfssubClassOf);
         }

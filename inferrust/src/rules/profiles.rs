@@ -15,7 +15,7 @@ pub struct ClosureProfile {
 pub struct RuleProfile {
     pub(crate) cl_profile: ClosureProfile,
     pub(crate) axiomatic_triples: bool,
-    pub(crate) before_rules: StaticRuleSet,
+    pub(crate) before_rules: Vec<Box<Rule>>,
     pub(crate) rules: FixPointRuleSet,
     pub(crate) after_rules: Option<Box<dyn Fn(&InfGraph) -> RuleResult>>,
     name: String,
@@ -53,13 +53,9 @@ impl RuleProfile {
                 on_trp: false,
             },
             axiomatic_triples: true,
-            before_rules: StaticRuleSet {
-                rules: Box::new(before_rules),
-            },
+            before_rules: before_rules,
             rules: FixPointRuleSet {
-                rules: StaticRuleSet {
-                    rules: Box::new(rules),
-                },
+                rules: rules,
             },
             after_rules: Some(Box::new(finalize)),
             name: "RDFS".to_string(),
@@ -91,13 +87,9 @@ impl RuleProfile {
                 on_trp: false,
             },
             axiomatic_triples: false,
-            before_rules: StaticRuleSet {
-                rules: Box::new(before_rules),
-            },
+            before_rules: before_rules,
             rules: FixPointRuleSet {
-                rules: StaticRuleSet {
-                    rules: Box::new(rules),
-                },
+                rules: rules,
             },
             after_rules: None,
             name: "RHODF".to_string(),
@@ -152,13 +144,9 @@ impl RuleProfile {
                 on_trp: true,
             },
             axiomatic_triples: false,
-            before_rules: StaticRuleSet {
-                rules: Box::new(before_rules),
-            },
+            before_rules: before_rules,
             rules: FixPointRuleSet {
-                rules: StaticRuleSet {
-                    rules: Box::new(rules),
-                },
+                rules: rules,
             },
             after_rules: Some(Box::new(finalize)),
             name: "RDFSPLUS".to_string(),

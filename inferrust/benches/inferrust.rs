@@ -15,7 +15,7 @@ pub fn uobm_total(c: &mut Criterion) {
         b.iter(|| {
             let graph = InfGraph::new(
                 sophia_api::parser::nt::parse_str(&data),
-                &mut RuleProfile::RDFSPlus()
+                &RuleProfile::RDFSPlus()
             ).expect("error during parsing");
             assert!(graph.size() > 711);
         })

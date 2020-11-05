@@ -10,12 +10,12 @@ pub(crate) type RuleResult = Vec<[u64; 3]>;
 /// A set of Rule, which can be applied on a InfGraph
 pub(crate) trait RuleSet {
     /// Process this ruleset, possibly using multiple threads
-    fn process(&mut self, graph: &mut InfGraph);
+    fn process(&self, graph: &mut InfGraph);
     fn is_empty(&self) -> bool;
 }
 
 impl RuleSet for Vec<Box<Rule>> {
-    fn process(&mut self, graph: &mut InfGraph) {
+    fn process(&self, graph: &mut InfGraph) {
         if self.is_empty() {
             return;
         }
@@ -30,31 +30,13 @@ impl RuleSet for Vec<Box<Rule>> {
     }
 }
 
-pub(crate) struct StaticRuleSet {
-    pub rules: Box<dyn RuleSet>,
-}
-
-impl RuleSet for StaticRuleSet {
-    fn process(&mut self, graph: &mut InfGraph) {
-        self.rules.process(graph)
-    }
-
-    fn is_empty(&self) -> bool {
-        self.rules.is_empty()
-    }
-}
-
 /// A specific ruleset (run rules until fixpoint is reached)
 pub(crate) struct FixPointRuleSet {
-    pub rules: StaticRuleSet,
+    pub rules: Vec<Box<Rule>>,
 }
 
-impl FixPointRuleSet {
-    fn fixpoint<F: FnMut(&mut StaticRuleSet, &mut InfGraph)>(
-        &mut self,
-        graph: &mut InfGraph,
-        mut process: F,
-    ) {
+impl RuleSet for FixPointRuleSet {
+    fn process(&self, graph: &mut InfGraph) {
         if self.rules.is_empty() {
             return;
         }
@@ -62,15 +44,9 @@ impl FixPointRuleSet {
         let mut prev_size = size + 1;
         while prev_size != size {
             prev_size = size;
-            process(&mut self.rules, graph);
+            self.rules.process(graph);
             size = graph.size();
         }
-    }
-}
-
-impl RuleSet for FixPointRuleSet {
-    fn process(&mut self, graph: &mut InfGraph) {
-        self.fixpoint(graph, <StaticRuleSet as RuleSet>::process)
     }
 
     fn is_empty(&self) -> bool {
