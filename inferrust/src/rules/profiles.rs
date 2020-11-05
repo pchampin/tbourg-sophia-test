@@ -66,16 +66,6 @@ impl RuleProfile {
         }
     }
 
-    /// The standard set of rules for RDF-Schema, without the axiomatic triples.
-    ///
-    /// This saves computation time, and the axiomatic triples are rarely useful.
-    pub fn RDFSLite() -> Self {
-        Self {
-            axiomatic_triples: false,
-            ..Self::RDFS()
-        }
-    }
-
     /// ρdf is a subset of RDFS, hence faster to compute,
     /// with no significant loss of expressivity.
     pub fn RhoDF() -> Self {

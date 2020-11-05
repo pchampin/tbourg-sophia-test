@@ -25,9 +25,8 @@
 //! :Male rdfs:subClassOf :Person .
 //! "#;
 //!
-//! let mut graph = InfGraph::new(
+//! let mut graph = InfGraph::new_rdfs_plus(
 //!     sophia::parser::turtle::parse_str(rep),
-//!     &mut RuleProfile::RDFS(),
 //! );
 //! ```
 //!

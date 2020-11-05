@@ -284,6 +284,33 @@ impl InfGraph {
         Ok(this)
     }
 
+    /// Create a new `InfGraph` from the given triple source,
+    /// with the RDFS rule profile.
+    pub fn new_rdfs<TS>(ts: TS) -> Result<Self, TS::Error>
+    where
+        TS: TripleSource,
+    {
+        Self::new(ts, &mut RuleProfile::RDFS())
+    }
+
+    /// Create a new `InfGraph` from the given triple source,
+    /// with the RhoDF rule profile.
+    pub fn new_rhodf<TS>(ts: TS) -> Result<Self, TS::Error>
+    where
+        TS: TripleSource,
+    {
+        Self::new(ts, &mut RuleProfile::RhoDF())
+    }
+
+    /// Create a new `InfGraph` from the given triple source,
+    /// with the RDFS+ rule profile.
+    pub fn new_rdfs_plus<TS>(ts: TS) -> Result<Self, TS::Error>
+    where
+        TS: TripleSource,
+    {
+        Self::new(ts, &mut RuleProfile::RDFSPlus())
+    }
+
     /// The total number of triples (explicit + inferred)
     /// in this graph.
     #[inline]
@@ -291,13 +318,14 @@ impl InfGraph {
         self.store.size()
     }
 
-    /// **for testing purposes only**
+    /// **for benchmarking purposes only**
+    ///
     /// Create a new `InfGraph` from the given triple source,
     /// but *do not* finalize the processing.
     /// This graph is **unsuable**
     /// until the `process` method is called.
     ///
-    /// This can be used in tests to measure the loading time.
+    /// This is useful for benchmarking the the loading time (without inferences).
     pub fn new_unprocessed<TS>(mut ts: TS) -> Result<Self, TS::Error>
     where
         TS: TripleSource,
@@ -313,10 +341,11 @@ impl InfGraph {
         Ok(Self { dictionary, store })
     }
 
-    /// **for testing purposes only**
+    /// **for benchlarking purposes only**
+    ///
     /// Finalizes the processing of a graph created with `new_unprocessed`.
     ///
-    /// This can be used in tests to measure the processing time.
+    /// This is useful for benchmatking the processing time of inferences (without loading).
     pub fn process(&mut self, profile: &mut RuleProfile) {
         self.compute_transitive_closures(&mut profile.cl_profile);
         profile.before_rules.process(self);
