@@ -1,4 +1,4 @@
-//! Implementation of `sophia::graph::Graph` that supports inferences.
+//! Provides type `InfGraph` (other utility types).
 
 use sophia::graph::GTripleSource;
 use sophia::graph::Graph;
@@ -13,7 +13,7 @@ use crate::inferray::TripleStore;
 use crate::rules::*;
 use crate::utils::*;
 
-/// see [module documentation](./index.html)
+/// Implementation of `sophia::graph::Graph` that supports inferences.
 pub struct InfGraph {
     dictionary: NodeDictionary,
     store: TripleStore,

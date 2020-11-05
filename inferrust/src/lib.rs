@@ -1,4 +1,4 @@
-//! This crate is an adaptation of [Inferray] in Rust, based on the crate [Sophia].
+//! This crate is an adaptation of [Inferray] in Rust \[1], based on the crate [Sophia] \[2].
 //!
 //! [Inferray]:http://www.vldb.org/pvldb/vol9/p468-subercaze.pdf
 //! [Sophia]:https://github.com/pchampin/sophia_rs
@@ -9,8 +9,7 @@
 //!
 //! ```
 //!
-//! use inferrust::inferray::*;
-//! use inferrust::rules::*;
+//! use inferrust::*;
 //!
 //! let rep = r#"
 //! @prefix : <http://example.org/> .
@@ -34,18 +33,20 @@
 //!
 //! [Sophia parser]:https://docs.rs/sophia/0.6.1/sophia/parser/index.html
 //!
-//! ## Citation
-//! Julien Subercaze, Christophe Gravier, Jules Chevalier, Frédérique Laforest:
+//! ## References
+//! \[1] Julien Subercaze, Christophe Gravier, Jules Chevalier, Frédérique Laforest:
 //! Inferray: fast in-memory RDF inference. PVLDB 9(6): 468-479 (2016)
 //!
-//! Champin, P.-A. (2020) ‘Sophia: A Linked Data and Semantic Web toolkit for Rust’, in Wilde, E. and Amundsen, M. (eds).
+//! \[2] Champin, P.-A. (2020) ‘Sophia: A Linked Data and Semantic Web toolkit for Rust’, in Wilde, E. and Amundsen, M. (eds).
 //! The Web Conference 2020: Developers Track, Taipei, TW.
-//! Available at: https://www2020devtrack.github.io/site/schedule.
 
-pub mod closure;
-pub mod inferray;
-pub mod rules;
-pub mod utils;
+mod closure;
+mod inferray;
+mod rules;
+mod utils;
+
+pub use inferray::InfGraph;
+pub use rules::RuleProfile;
 
 #[cfg(test)]
 mod test;

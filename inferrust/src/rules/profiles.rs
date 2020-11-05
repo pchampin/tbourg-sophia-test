@@ -1,3 +1,5 @@
+//! Provides type `RuleProfile` (other utility types).
+
 use crate::inferray::*;
 use crate::rules::*;
 use std::fmt;
@@ -9,16 +11,18 @@ pub struct ClosureProfile {
     pub on_trp: bool,
 }
 
+/// A set of rules used for reasoning.
 pub struct RuleProfile {
-    pub cl_profile: ClosureProfile,
-    pub axiomatic_triples: bool,
-    pub before_rules: StaticRuleSet,
-    pub rules: FixPointRuleSet,
-    pub after_rules: Option<Box<dyn Fn(&InfGraph) -> RuleResult>>,
+    pub(crate) cl_profile: ClosureProfile,
+    pub(crate) axiomatic_triples: bool,
+    pub(crate) before_rules: StaticRuleSet,
+    pub(crate) rules: FixPointRuleSet,
+    pub(crate) after_rules: Option<Box<dyn Fn(&InfGraph) -> RuleResult>>,
     name: String,
 }
 
 impl RuleProfile {
+    /// The standard set of rules for RDF-Schema
     pub fn RDFS() -> Self {
         let rules: Vec<Box<Rule>> = vec![
             // Alpha class
@@ -62,13 +66,18 @@ impl RuleProfile {
         }
     }
 
-    pub fn RDFSDefault() -> Self {
+    /// The standard set of rules for RDF-Schema, without the axiomatic triples.
+    ///
+    /// This saves computation time, and the axiomatic triples are rarely useful.
+    pub fn RDFSLite() -> Self {
         Self {
             axiomatic_triples: false,
             ..Self::RDFS()
         }
     }
 
+    /// ρdf is a subset of RDFS, hence faster to compute,
+    /// with no significant loss of expressivity.
     pub fn RhoDF() -> Self {
         let before_rules: Vec<Box<Rule>> = vec![
             // Zeta class (trivial rules)
@@ -105,6 +114,10 @@ impl RuleProfile {
         }
     }
 
+    /// RDFS-Plus extends RDF with some terms from OWL:
+    ///
+    /// `equivalentClass`, `sameAs`, `equivalentProperty`, `FunctionalProperty`,
+    /// `InverseFunctionalProperty`, `inverseOf`, `SymmetricProperty`, `TransitiveProperty`.
     pub fn RDFSPlus() -> Self {
         let before_rules: Vec<Box<Rule>> = vec![
             // Zeta class (trivial rules)
@@ -162,6 +175,7 @@ impl RuleProfile {
         }
     }
 
+    /// Return the name of this RuleProfile
     pub fn name(&self) -> &str {
         &self.name
     }

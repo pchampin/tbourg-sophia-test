@@ -8,7 +8,7 @@ pub(crate) type Rule = fn(&TripleStore) -> RuleResult;
 pub(crate) type RuleResult = Vec<[u64; 3]>;
 
 /// A set of Rule, which can be applied on a InfGraph
-pub trait RuleSet {
+pub(crate) trait RuleSet {
     /// Process this ruleset, possibly using multiple threads
     fn process(&mut self, graph: &mut InfGraph);
     fn is_empty(&self) -> bool;
@@ -30,7 +30,7 @@ impl RuleSet for Vec<Box<Rule>> {
     }
 }
 
-pub struct StaticRuleSet {
+pub(crate) struct StaticRuleSet {
     pub rules: Box<dyn RuleSet>,
 }
 
@@ -45,7 +45,7 @@ impl RuleSet for StaticRuleSet {
 }
 
 /// A specific ruleset (run rules until fixpoint is reached)
-pub struct FixPointRuleSet {
+pub(crate) struct FixPointRuleSet {
     pub rules: StaticRuleSet,
 }
 
