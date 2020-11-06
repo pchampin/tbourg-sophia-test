@@ -336,9 +336,8 @@ impl InfGraph {
             let rep = dictionary.encode_triple(&t);
             encoded.push(rep);
         })?;
-        let store = TripleStore::new(
-            dictionary.remap_triples(encoded)
-        );
+        dictionary.remap_triples(&mut encoded);
+        let store = TripleStore::new(encoded);
         Ok(Self { dictionary, store })
     }
 

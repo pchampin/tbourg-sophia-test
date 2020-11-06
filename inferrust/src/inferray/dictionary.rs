@@ -175,29 +175,24 @@ impl NodeDictionary {
         self.indexes.get(&RefTerm::from(t)).cloned()
     }
 
-
-    /// Collect integer-triples into a sorted TripleSTore.
-    pub fn remap_triples<'s, I>(&'s self, triples: I) -> impl Iterator<Item=[u64; 3]> + 's
-    where
-        I: IntoIterator<Item=[u64; 3]> + 's,
-    {
-        triples.into_iter().map(move |mut t| {
-            let mut c = 0;
-            for [old, new] in &self.remapped {
-                if t[0] == *old {
-                    t[0] = *new;
-                    c += 1;
+    /// Modify in place a vector of index triples,
+    /// to rename resources that appeared to be also properties
+    pub fn remap_triples(&self, triples: &mut Vec<[u64; 3]>) {
+        if self.remapped.is_empty() { return; }
+        let map: HashMap<_, _> = self.remapped
+            .iter()
+            .map(|[k, v]| (*k, *v))
+            .collect();
+        triples
+            .iter_mut()
+            .for_each(|t| {
+                if let Some(new_s) = map.get(&t[0]) {
+                    t[0] = *new_s;
                 }
-                if t[2] == *old {
-                    t[2] = *new;
-                    c += 1;
+                if let Some(new_o) = map.get(&t[2]) {
+                    t[2] = *new_o;
                 }
-                if c == 2 {
-                    break;
-                }
-            }
-            t
-        })
+            });
     }
 
     /// Indicates whether a resource index was remapped to a property index.
