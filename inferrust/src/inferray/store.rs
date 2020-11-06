@@ -29,18 +29,18 @@ pub(crate) struct TripleStore {
 
 impl TripleStore {
     /// Collect integer-triples into a sorted TripleSTore.
-    pub fn new<'a, I>(triples: I) -> Self
+    pub fn new<I>(triples: I) -> Self
     where
-        I: IntoIterator<Item=&'a [u64; 3]>
+        I: IntoIterator<Item=[u64; 3]>
     {
         let mut proto_chunks = vec![];
         for triple in triples {
             let [is, ip, io] = triple;
-            let op = NodeDictionary::prop_idx_to_offset(*ip);
+            let op = NodeDictionary::prop_idx_to_offset(ip);
             if op >= proto_chunks.len() {
                 proto_chunks.resize_with(op+1, Vec::new);
             }
-            proto_chunks[op].push([*is, *io]);
+            proto_chunks[op].push([is, io]);
         }
         let chunks: Vec<Chunk> = proto_chunks.into_iter()
             .map(|v| v[..].into())

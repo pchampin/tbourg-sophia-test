@@ -57,7 +57,7 @@ impl RuleProfile {
             rules: FixPointRuleSet {
                 rules: rules,
             },
-            after_rules: Some(Box::new(finalize)),
+            after_rules: Some(Box::new(type_all_resources)),
             name: "RDFS".to_string(),
         }
     }
@@ -148,7 +148,7 @@ impl RuleProfile {
             rules: FixPointRuleSet {
                 rules: rules,
             },
-            after_rules: Some(Box::new(finalize)),
+            after_rules: Some(Box::new(type_all_resources)),
             name: "RDFSPLUS".to_string(),
         }
     }

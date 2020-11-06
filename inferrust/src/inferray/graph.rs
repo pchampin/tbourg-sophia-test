@@ -336,8 +336,9 @@ impl InfGraph {
             let rep = dictionary.encode_triple(&t);
             encoded.push(rep);
         })?;
-        encoded.iter_mut().for_each(|t| dictionary.remap_triple(t));
-        let store = TripleStore::new(&encoded);
+        let store = TripleStore::new(
+            dictionary.remap_triples(encoded)
+        );
         Ok(Self { dictionary, store })
     }
 
@@ -355,7 +356,7 @@ impl InfGraph {
         profile.rules.process(self);
         match &profile.after_rules {
             Some(func) => {
-                self.merge_store(TripleStore::new(&func(self)));
+                self.merge_store(TripleStore::new(func(self)));
             }
             None => (),
         }
@@ -662,7 +663,7 @@ impl InfGraph {
             NodeDictionary::rdfssubPropertyOf as u64,
             NodeDictionary::rdfssubClassOf as u64,
         ]];
-        self.merge_store(TripleStore::new(axiomatic_triples.iter()));
+        self.merge_store(TripleStore::new(axiomatic_triples.iter().cloned()));
     }
 }
 

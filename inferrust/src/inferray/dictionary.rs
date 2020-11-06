@@ -1,5 +1,15 @@
-//! A `NodeDictionary` maintains a correspondance between
-//! terms and indexes.
+//! A `NodeDictionary` maintains a correspondance between terms and indexes.
+//!
+//! Property indexes are u32 values;
+//! resource (node) indexes are u64 ≥ 2^32.
+//! Properties are indexed from 2^32-2, decreasing;
+//! resources are indexed from 2^32, increasing.
+//! This layout allows for efficient sorting using bucket sort.
+//!
+//! Note however that, when populating a graph,
+//! some terms used as resources may occur in the predicate position;
+//! in that case, they need to be remapped to a u32 index.
+//! The list of remapped indexes is stored in `remapped`.
 
 #![allow(non_snake_case)]
 #![allow(non_upper_case_globals)]
@@ -22,7 +32,7 @@ pub(crate) struct NodeDictionary {
 }
 
 impl NodeDictionary {
-    pub const START_INDEX: u32 = u32::max_value();
+    pub const START_INDEX: u32 = u32::MAX;
     pub const rdfsResource: u64 = Self::START_INDEX as u64 + 1;
     pub const rdfsClass: u64 = Self::START_INDEX as u64 + 2;
     pub const rdfsDatatype: u64 = Self::START_INDEX as u64 + 3;
@@ -119,31 +129,27 @@ impl NodeDictionary {
         T: Triple,
         // T::Term: ?Sized,
     {
-        let mut s: u64 = 0;
-        let mut o: u64 = 0;
-        let p: u32;
+        use PropertyPosition::*;
         let ts = t.s();
         let to = t.o();
         let tp = t.p();
-        // Property will always be property
+        let s: u64;
+        let o: u64;
+        let p: u32;
         p = self.add_property(tp);
-        let prop_in_s_or_o = contains_prop_in_s_or_o(p);
-        if prop_in_s_or_o != -1 {
-            match prop_in_s_or_o {
-                1 => {
-                    s = self.add_property(ts).into();
-                    o = self.add(to);
-                }
-                3 => {
-                    s = self.add_property(ts).into();
-                    o = self.add_property(to).into();
-                }
-                _ => (),
+        match contains_prop_in_s_or_o(p) {
+            None => {
+                s = self.add(ts);
+                o = self.add(to);
+            },
+            Subject => {
+                s = self.add_property(ts) as u64;
+                o = self.add(to);
             }
-        } else {
-            // Add a regular triple
-            s = self.add(ts);
-            o = self.add(to);
+            SubjectAndObject => {
+                s = self.add_property(ts) as u64;
+                o = self.add_property(to) as u64;
+            }
         }
         [s, p as u64, o]
     }
@@ -170,22 +176,28 @@ impl NodeDictionary {
     }
 
 
-    /// Update subject and object in t according to self.remapped
-    pub(super) fn remap_triple(&self, t: &mut [u64; 3]) {
-        let mut c = 0;
-        for [old, new] in &self.remapped {
-            if t[0] == *old {
-                t[0] = *new;
-                c += 1;
+    /// Collect integer-triples into a sorted TripleSTore.
+    pub fn remap_triples<'s, I>(&'s self, triples: I) -> impl Iterator<Item=[u64; 3]> + 's
+    where
+        I: IntoIterator<Item=[u64; 3]> + 's,
+    {
+        triples.into_iter().map(move |mut t| {
+            let mut c = 0;
+            for [old, new] in &self.remapped {
+                if t[0] == *old {
+                    t[0] = *new;
+                    c += 1;
+                }
+                if t[2] == *old {
+                    t[2] = *new;
+                    c += 1;
+                }
+                if c == 2 {
+                    break;
+                }
             }
-            if t[2] == *old {
-                t[2] = *new;
-                c += 1;
-            }
-            if c == 2 {
-                break;
-            }
-        }
+            t
+        })
     }
 
     /// Indicates whether a resource index was remapped to a property index.
@@ -235,13 +247,16 @@ impl NodeDictionary {
     {
         let term: RefTerm = RefTerm::from(term);
         let old_idx = self.indexes.get(&term).cloned();
-        if let Some(idx) = old_idx {
-            if idx < Self::START_INDEX as u64 {
-                return idx as u32
-            }
-        }
         let arcterm = match old_idx {
-            Some(old_idx) => self.resources[(old_idx - Self::START_INDEX as u64 - 1) as usize].clone(),
+            // already a property
+            Some(old_idx) if old_idx < Self::START_INDEX as u64 => {
+                return old_idx as u32;
+            }
+            // already indexed, but as a resource
+            Some(old_idx) => {
+                self.resources[(old_idx - Self::START_INDEX as u64 - 1) as usize].clone()
+            }
+            // not indexed yet
             None => self.factory.convert_term(term),
         };
         let refterm = unsafe { fake_static(&arcterm) };
@@ -255,7 +270,6 @@ impl NodeDictionary {
     }
 
     #[inline]
-
     fn add_with<T>(&mut self, term: &T, id: u64)
     where
         T: TTerm + ?Sized,
@@ -263,8 +277,8 @@ impl NodeDictionary {
         let idx = self.add(term);
         debug_assert_eq!(idx, id);
     }
-    #[inline]
 
+    #[inline]
     fn add_property_with<T>(&mut self, term: &T, id: u32)
     where
         T: TTerm + ?Sized,
@@ -386,10 +400,7 @@ where
     t.borrow().clone_map(|txt| &*(txt as *const str))
 }
 
-// Should return -1 if both s and o are res,
-// 1 if s is prop and o is res,
-// and 3 if both s and o are prop
-fn contains_prop_in_s_or_o(property_index: u32) -> i8 {
+fn contains_prop_in_s_or_o(property_index: u32) -> PropertyPosition {
     let prop_in_s = vec![NodeDictionary::rdfsdomain, NodeDictionary::rdfsrange];
     let prop_in_s_and_o = vec![
         NodeDictionary::owlequivalentProperty,
@@ -397,10 +408,17 @@ fn contains_prop_in_s_or_o(property_index: u32) -> i8 {
         NodeDictionary::rdfssubPropertyOf,
     ];
     if prop_in_s_and_o.contains(&property_index) {
-        3
+        PropertyPosition::SubjectAndObject
     } else if prop_in_s.contains(&property_index) {
-        1
+        PropertyPosition::Subject
     } else {
-        -1
+        PropertyPosition::None
     }
+}
+
+/// An inidcator of which nodes in a triple must be considered as properties
+enum PropertyPosition {
+    None,
+    Subject,
+    SubjectAndObject
 }

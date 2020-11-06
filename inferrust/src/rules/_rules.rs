@@ -20,9 +20,12 @@ impl RuleSet for Vec<Box<Rule>> {
             return;
         }
         let ts = graph.store();
-        let results = self.par_iter().map(|rule| rule(ts)).collect::<Vec<_>>();
-        let merged = results.iter().flat_map(|a| a.iter());
-        graph.merge_store(TripleStore::new(merged));
+        let results: Vec<_> = self.par_iter().map(|rule| rule(ts)).collect();
+        graph.merge_store(TripleStore::new(
+            results
+            .into_iter()
+            .flat_map(|a| a.into_iter())
+        ));
     }
 
     fn is_empty(&self) -> bool {

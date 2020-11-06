@@ -73,6 +73,7 @@ impl Chunk {
         }
         self.so.extend_from_slice(pairs);
         bucket_sort_pairs(&mut self.so);
+        // invalidate outdated lazy object-subject list
         self.os = OnceCell::new();
     }
 
@@ -81,6 +82,7 @@ impl Chunk {
     pub fn merge(&mut self, other: Chunk) {
         let old_so = std::mem::replace(&mut self.so, vec![]);
         self.so = merge_sort(old_so, other.so);
+        // invalidate outdated lazy object-subject list
         self.os = OnceCell::new();
     }
 

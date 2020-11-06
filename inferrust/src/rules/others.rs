@@ -145,7 +145,8 @@ pub(crate) fn PRP_TRP(ts: &TripleStore) -> RuleResult {
     output
 }
 
-pub fn finalize(graph: &InfGraph) -> RuleResult {
+/// Add `rdf:type` `rdf:Resource` to all nodes of the graph.
+pub fn type_all_resources(graph: &InfGraph) -> RuleResult {
     ((NodeDictionary::START_INDEX as u64 + 1)..=graph.dict().get_res_ctr())
     .filter_map(|e|
         if !graph.dict().was_remapped(e) {
